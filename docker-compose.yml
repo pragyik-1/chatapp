@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: database
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: abcda
+      POSTGRES_DB: database
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./backend/sql/schema:/docker-entrypoint-initdb.d:ro,z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d database"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - messaging_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: user
+      DB_PASSWORD: abcda
+      DB_NAME: database
+      DB_SSLMODE: disable
+      PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - messaging_network
+
+
+volumes:
+  postgres_data:
+
+networks:
+  messaging_network:
+    driver: bridge
