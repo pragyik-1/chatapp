@@ -18,6 +18,7 @@ type Querier interface {
 	GetMessageByID(ctx context.Context, id pgtype.UUID) (Message, error)
 	GetRoomMessages(ctx context.Context, arg GetRoomMessagesParams) ([]GetRoomMessagesRow, error)
 	GetRoomParticipants(ctx context.Context, roomID pgtype.UUID) ([]GetRoomParticipantsRow, error)
+	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	GetUserRooms(ctx context.Context, userID pgtype.UUID) ([]Room, error)
 	IsParticipant(ctx context.Context, arg IsParticipantParams) (bool, error)

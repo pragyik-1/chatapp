@@ -41,32 +41,15 @@ func sendMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		// Validate participant
-		isParticipant, err := queries.IsParticipant(r.Context(), db.IsParticipantParams{
-			RoomID: pgtype.UUID{Bytes: req.RoomID, Valid: true},
-			UserID: pgtype.UUID{Bytes: req.SenderID, Valid: true},
-		})
-		if err != nil || !isParticipant {
+		if !_isValidParticipant(r, queries, req.RoomID, req.SenderID) {
 			utils.WriteError(w, http.StatusForbidden, "user is not a participant of this room")
 			return
 		}
 
-		var replyToID pgtype.UUID
-		if req.ReplyTo != nil {
-			reply, err := queries.GetMessageByID(r.Context(), pgtype.UUID{Bytes: *req.ReplyTo, Valid: true})
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					utils.WriteError(w, http.StatusBadRequest, "reply_to_id refers to a non-existent message")
-					return
-				}
-				utils.WriteError(w, http.StatusInternalServerError, "failed to send message")
-				return
-			}
-			if !reply.RoomID.Valid || reply.RoomID.Bytes != req.RoomID {
-				utils.WriteError(w, http.StatusBadRequest, "reply_to_id does not belong to this room")
-				return
-			}
-			replyToID = pgtype.UUID{Bytes: *req.ReplyTo, Valid: true}
+		replyToID, err := _validateReplyTo(r, queries, req.ReplyTo, req.RoomID)
+		if err != nil {
+			utils.WriteError(w, http.StatusBadRequest, err.Error())
+			return
 		}
 
 		msg, err := queries.SendMessage(r.Context(), db.SendMessageParams{
@@ -75,6 +58,7 @@ func sendMessage(queries *db.Queries) http.HandlerFunc {
 			Content:   req.Content,
 			ReplyToID: replyToID,
 		})
+
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to send message")
 			return
@@ -140,18 +124,7 @@ func editMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		existing, err := queries.GetMessageByID(r.Context(), pgtype.UUID{Bytes: messageID, Valid: true})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				utils.WriteError(w, http.StatusNotFound, "message not found")
-				return
-			}
-			utils.WriteError(w, http.StatusInternalServerError, "failed to edit message")
-			return
-		}
-
-		if !existing.SenderID.Valid || existing.SenderID.Bytes != req.SenderID {
-			utils.WriteError(w, http.StatusForbidden, "you are not the sender of this message")
+		if !_isMessageSender(r, queries, messageID, req.SenderID, w) {
 			return
 		}
 
@@ -189,18 +162,7 @@ func deleteMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		existing, err := queries.GetMessageByID(r.Context(), pgtype.UUID{Bytes: messageID, Valid: true})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				utils.WriteError(w, http.StatusNotFound, "message not found")
-				return
-			}
-			utils.WriteError(w, http.StatusInternalServerError, "failed to delete message")
-			return
-		}
-
-		if !existing.SenderID.Valid || existing.SenderID.Bytes != req.SenderID {
-			utils.WriteError(w, http.StatusForbidden, "you are not the sender of this message")
+		if !_isMessageSender(r, queries, messageID, req.SenderID, w) {
 			return
 		}
 
@@ -215,4 +177,51 @@ func deleteMessage(queries *db.Queries) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func _isValidParticipant(r *http.Request, queries *db.Queries, roomID, userID uuid.UUID) bool {
+	isParticipant, err := queries.IsParticipant(r.Context(), db.IsParticipantParams{
+		RoomID: pgtype.UUID{Bytes: roomID, Valid: true},
+		UserID: pgtype.UUID{Bytes: userID, Valid: true},
+	})
+	return err == nil && isParticipant
+}
+
+func _validateReplyTo(r *http.Request, queries *db.Queries, replyTo *uuid.UUID, roomID uuid.UUID) (pgtype.UUID, error) {
+	if replyTo == nil {
+		return pgtype.UUID{}, nil
+	}
+
+	reply, err := queries.GetMessageByID(r.Context(), pgtype.UUID{Bytes: *replyTo, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pgtype.UUID{}, errors.New("reply_to_id refers to a non-existent message")
+		}
+		return pgtype.UUID{}, errors.New("failed to validate reply")
+	}
+
+	if !reply.RoomID.Valid || reply.RoomID.Bytes != roomID {
+		return pgtype.UUID{}, errors.New("reply_to_id does not belong to this room")
+	}
+
+	return pgtype.UUID{Bytes: *replyTo, Valid: true}, nil
+}
+
+func _isMessageSender(r *http.Request, queries *db.Queries, messageID, senderID uuid.UUID, w http.ResponseWriter) bool {
+	existing, err := queries.GetMessageByID(r.Context(), pgtype.UUID{Bytes: messageID, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			utils.WriteError(w, http.StatusNotFound, "message not found")
+			return false
+		}
+		utils.WriteError(w, http.StatusInternalServerError, "failed to verify message")
+		return false
+	}
+
+	if !existing.SenderID.Valid || existing.SenderID.Bytes != senderID {
+		utils.WriteError(w, http.StatusForbidden, "you are not the sender of this message")
+		return false
+	}
+
+	return true
 }

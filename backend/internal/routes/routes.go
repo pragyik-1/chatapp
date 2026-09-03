@@ -2,14 +2,21 @@ package routes
 
 import (
 	"chat_app/internal/db"
+	internalMiddleware "chat_app/internal/middleware"
 	"chat_app/internal/utils"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 func MakeRouter(queries *db.Queries) *chi.Mux {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("JWT_SECRET is not set")
+	}
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -22,6 +29,8 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 	r.Post("/register", registerUser(queries))
 
 	r.Group(func(r chi.Router) {
+		r.Use(internalMiddleware.JWTAuth(secret))
+
 		r.Route("/user", func(r chi.Router) {
 			r.Get("/{userId}/rooms", getUserRooms(queries))
 		})

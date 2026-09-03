@@ -11,19 +11,51 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const GetUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, username, email, status, last_seen, created_at, password_hash
+FROM users
+WHERE email = $1
+`
+
+type GetUserByEmailRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Username     string             `json:"username"`
+	Email        string             `json:"email"`
+	Status       pgtype.Int2        `json:"status"`
+	LastSeen     pgtype.Timestamptz `json:"last_seen"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	PasswordHash string             `json:"password_hash"`
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+	row := q.db.QueryRow(ctx, GetUserByEmail, email)
+	var i GetUserByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Status,
+		&i.LastSeen,
+		&i.CreatedAt,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
 const GetUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, status, last_seen, created_at
+SELECT id, username, email, status, last_seen, created_at, password_hash
 FROM users
 WHERE id = $1
 `
 
 type GetUserByIDRow struct {
-	ID        pgtype.UUID        `json:"id"`
-	Username  string             `json:"username"`
-	Email     string             `json:"email"`
-	Status    pgtype.Int2        `json:"status"`
-	LastSeen  pgtype.Timestamptz `json:"last_seen"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID           pgtype.UUID        `json:"id"`
+	Username     string             `json:"username"`
+	Email        string             `json:"email"`
+	Status       pgtype.Int2        `json:"status"`
+	LastSeen     pgtype.Timestamptz `json:"last_seen"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	PasswordHash string             `json:"password_hash"`
 }
 
 func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error) {
@@ -36,6 +68,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDR
 		&i.Status,
 		&i.LastSeen,
 		&i.CreatedAt,
+		&i.PasswordHash,
 	)
 	return i, err
 }
