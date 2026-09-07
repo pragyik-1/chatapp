@@ -19,6 +19,15 @@ type Message struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type RefreshToken struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Token     string             `json:"token"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	IsRevoked pgtype.Bool        `json:"is_revoked"`
+}
+
 type Room struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      pgtype.Text        `json:"name"`

@@ -19,8 +19,7 @@ type registerRequest struct {
 func registerUser(queries *db.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req registerRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
-			utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
 			return
 		}
 

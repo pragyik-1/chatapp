@@ -32,7 +32,7 @@ type DeleteMessageRequest struct {
 func sendMessage(queries *db.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req SendMessageRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
+		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
 			return
 		}
 
@@ -114,8 +114,7 @@ func editMessage(queries *db.Queries) http.HandlerFunc {
 		}
 
 		var req EditMessageRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
-			utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
 			return
 		}
 

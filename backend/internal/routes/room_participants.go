@@ -24,8 +24,7 @@ func addParticipant(queries *db.Queries) http.HandlerFunc {
 		}
 
 		var req RoomParticipantRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
-			utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
 			return
 		}
 
@@ -57,8 +56,7 @@ func removeParticipant(queries *db.Queries) http.HandlerFunc {
 		}
 
 		var req RoomParticipantRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
-			utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
 			return
 		}
 

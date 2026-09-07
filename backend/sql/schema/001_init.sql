@@ -36,6 +36,15 @@ CREATE TABLE messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_revoked BOOLEAN DEFAULT FALSE
+);
+
 COMMENT ON COLUMN users.status IS 
     '0=offline, 1=online, 2=idle, 3=invisible';
 

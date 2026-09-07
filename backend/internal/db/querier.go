@@ -12,10 +12,14 @@ import (
 
 type Querier interface {
 	AddRoomParticipant(ctx context.Context, arg AddRoomParticipantParams) error
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (CreateRefreshTokenRow, error)
 	CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, error)
+	DeleteExpiredRefreshTokens(ctx context.Context) error
 	DeleteMessage(ctx context.Context, arg DeleteMessageParams) error
 	EditMessage(ctx context.Context, arg EditMessageParams) (Message, error)
 	GetMessageByID(ctx context.Context, id pgtype.UUID) (Message, error)
+	GetRefreshTokenByToken(ctx context.Context, token string) (GetRefreshTokenByTokenRow, error)
+	GetRefreshTokenByUserID(ctx context.Context, userID pgtype.UUID) (GetRefreshTokenByUserIDRow, error)
 	GetRoomMessages(ctx context.Context, arg GetRoomMessagesParams) ([]GetRoomMessagesRow, error)
 	GetRoomParticipants(ctx context.Context, roomID pgtype.UUID) ([]GetRoomParticipantsRow, error)
 	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
@@ -24,6 +28,7 @@ type Querier interface {
 	IsParticipant(ctx context.Context, arg IsParticipantParams) (bool, error)
 	RegisterUser(ctx context.Context, arg RegisterUserParams) (RegisterUserRow, error)
 	RemoveRoomParticipant(ctx context.Context, arg RemoveRoomParticipantParams) error
+	RevokeRefreshTokensByUserID(ctx context.Context, userID pgtype.UUID) error
 	SendMessage(ctx context.Context, arg SendMessageParams) (Message, error)
 }
 

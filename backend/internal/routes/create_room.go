@@ -20,7 +20,7 @@ type CreateRoomRequest struct {
 func createRoom(queries *db.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req CreateRoomRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
+		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
 			return
 		}
 

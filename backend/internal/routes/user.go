@@ -32,3 +32,22 @@ func getUserRooms(queries *db.Queries) http.HandlerFunc {
 		utils.WriteJSON(w, http.StatusOK, rooms)
 	}
 }
+
+func getCurrentUser(queries *db.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		user, err := queries.GetUserByID(r.Context(), pgtype.UUID{Bytes: userID, Valid: true})
+
+		if err != nil {
+			utils.WriteError(w, http.StatusBadRequest, "invalid user_id")
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, user)
+	}
+}

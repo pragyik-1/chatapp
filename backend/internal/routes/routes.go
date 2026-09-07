@@ -1,8 +1,8 @@
 package routes
 
 import (
+	internalMiddleware "chat_app/internal/auth"
 	"chat_app/internal/db"
-	internalMiddleware "chat_app/internal/middleware"
 	"chat_app/internal/utils"
 	"log"
 	"net/http"
@@ -27,12 +27,15 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 	})
 
 	r.Post("/register", registerUser(queries))
+	r.Post("/login", loginUser(queries, secret))
+	r.Post("/token/refresh", refreshToken(queries, secret))
 
 	r.Group(func(r chi.Router) {
 		r.Use(internalMiddleware.JWTAuth(secret))
 
-		r.Route("/user", func(r chi.Router) {
+		r.Route("/users", func(r chi.Router) {
 			r.Get("/{userId}/rooms", getUserRooms(queries))
+			r.Get("/me", getCurrentUser(queries))
 		})
 		r.Route("/rooms", func(r chi.Router) {
 			r.Post("/create", createRoom(queries))

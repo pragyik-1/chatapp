@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@hermitk/bluenite": "^file:../bluenite",
+    "jwt-decode": "^4.0.0",
     "lucide-svelte": "^1.0.1"
   }
 }

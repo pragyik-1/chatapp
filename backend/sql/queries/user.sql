@@ -4,7 +4,7 @@ VALUES ($1, $2, $3)
 RETURNING id, username, email, status, last_seen, created_at;
 
 -- name: GetUserByID :one
-SELECT id, username, email, status, last_seen, created_at, password_hash
+SELECT id, username, email, status, last_seen, created_at
 FROM users
 WHERE id = $1;
 

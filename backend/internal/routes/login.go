@@ -1,10 +1,13 @@
 package routes
 
 import (
+	"chat_app/internal/auth"
 	"chat_app/internal/db"
 	"chat_app/internal/utils"
 	"net/http"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,12 +39,32 @@ func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
 			return
 		}
 
-		token, err := utils.GenerateJWT(user.ID, secret)
+		accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID, secret)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "failed to generate token")
+			utils.WriteError(w, http.StatusInternalServerError, "failed to generate token pair")
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+		if _, err := queries.CreateRefreshToken(r.Context(), db.CreateRefreshTokenParams{
+			UserID:    user.ID,
+			Token:     refreshToken,
+			ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		}); err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, "failed to store refresh token")
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    refreshToken,
+			Expires:  expiresAt,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteStrictMode,
+		})
+
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": accessToken, "refresh_token": refreshToken})
 	}
 }
