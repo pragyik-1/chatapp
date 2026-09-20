@@ -53,9 +53,10 @@ func (q *Queries) CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, e
 }
 
 const GetRoomParticipants = `-- name: GetRoomParticipants :many
-SELECT u.id, u.username, u.email, u.status, u.last_seen, rp.joined_at
+SELECT u.id, u.username, u.email, u.status, u.last_seen, us.color, rp.joined_at
 FROM room_participants rp
 JOIN users u ON rp.user_id = u.id
+LEFT JOIN user_settings us ON us.user_id = u.id
 WHERE rp.room_id = $1
 `
 
@@ -65,6 +66,7 @@ type GetRoomParticipantsRow struct {
 	Email    string             `json:"email"`
 	Status   pgtype.Int2        `json:"status"`
 	LastSeen pgtype.Timestamptz `json:"last_seen"`
+	Color    pgtype.Text        `json:"color"`
 	JoinedAt pgtype.Timestamptz `json:"joined_at"`
 }
 
@@ -83,6 +85,7 @@ func (q *Queries) GetRoomParticipants(ctx context.Context, roomID pgtype.UUID) (
 			&i.Email,
 			&i.Status,
 			&i.LastSeen,
+			&i.Color,
 			&i.JoinedAt,
 		); err != nil {
 			return nil, err

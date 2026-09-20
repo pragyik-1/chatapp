@@ -17,8 +17,8 @@
         class:selected={room.id === selectedRoomId}
         onclick={() => onSelect(room)}
       >
-        <div class="conversation-icon" class:group={room.type === 'group'}>
-          {#if room.type === 'group'}
+        <div class="conversation-icon" class:group={room.is_group}>
+          {#if room.is_group}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
@@ -31,13 +31,7 @@
         </div>
         <div class="conversation-info">
           <span class="conversation-name">{room.name}</span>
-          {#if room.lastMessage}
-            <span class="conversation-preview">{room.lastMessage}</span>
-          {/if}
         </div>
-        {#if room.lastMessageTime}
-          <span class="conversation-time">{room.lastMessageTime}</span>
-        {/if}
       </button>
     {/each}
   </Col>
@@ -126,21 +120,5 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .conversation-preview {
-    font-size: 0.8rem;
-    color: var(--secondary-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .conversation-time {
-    font-size: 0.7rem;
-    color: var(--muted-text);
-    flex-shrink: 0;
-    align-self: flex-start;
-    margin-top: 0.15rem;
   }
 </style>

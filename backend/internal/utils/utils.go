@@ -3,6 +3,8 @@ package utils
 import (
 	"chat_app/internal/constants"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 
@@ -38,4 +40,9 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 func GetUserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	userID, ok := ctx.Value(constants.UserIDContextKey).(uuid.UUID)
 	return userID, ok
+}
+
+func HashString(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }

@@ -13,9 +13,10 @@ DELETE FROM room_participants
 WHERE room_id = $1 AND user_id = $2;
 
 -- name: GetRoomParticipants :many
-SELECT u.id, u.username, u.email, u.status, u.last_seen, rp.joined_at
+SELECT u.id, u.username, u.email, u.status, u.last_seen, us.color, rp.joined_at
 FROM room_participants rp
 JOIN users u ON rp.user_id = u.id
+LEFT JOIN user_settings us ON us.user_id = u.id
 WHERE rp.room_id = $1;
 
 -- name: IsParticipant :one

@@ -1,20 +1,23 @@
 <script lang="ts">
   import { Button, Col, Dropdown, Textarea } from '@hermitk/bluenite'
   import { EllipsisVertical, Pencil, Trash2 } from 'lucide-svelte'
-  import { users } from '$lib/types'
-  import type { Room, Message, User } from '$lib/types'
+  import type { Room, Message, ParticipantDisplay } from '$lib/types'
 
   let {
     room,
     messages,
-    currentUser,
+    currentUserId,
+    memberCount,
+    getParticipant,
     onSend,
     onEdit,
     onDelete,
   }: {
     room: Room | null
     messages: Message[]
-    currentUser: User
+    currentUserId: string
+    memberCount: number
+    getParticipant: (userId: string) => ParticipantDisplay | undefined
     onSend: (content: string) => void
     onEdit: (messageId: string, content: string) => void
     onDelete: (messageId: string) => void
@@ -104,8 +107,15 @@
     }
   })
 
-  function getUser(userId: string): User | undefined {
-    return users.find((u) => u.id === userId)
+  function getAuthor(userId: string): ParticipantDisplay | undefined {
+    return getParticipant(userId)
+  }
+
+  function formatTime(iso: string): string {
+    if (!iso) return ''
+    const date = new Date(iso)
+    if (isNaN(date.getTime())) return iso
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 </script>
 
@@ -113,15 +123,15 @@
   <div class="chat-area">
     <div class="chat-header">
       <h2>{room.name}</h2>
-      {#if room.type === 'group'}
-        <span class="chat-meta">{room.participants.length} members</span>
+      {#if room.is_group}
+        <span class="chat-meta">{memberCount} members</span>
       {/if}
     </div>
 
     <div class="messages" bind:this={messagesEl}>
       {#each messages as msg (msg.id)}
-        {@const isOwn = msg.userId === currentUser.id}
-        {@const author = getUser(msg.userId)}
+        {@const isOwn = msg.sender_id === currentUserId}
+        {@const author = getAuthor(msg.sender_id)}
         <div class="message" class:own={isOwn}>
           {#if !isOwn && author}
             <div class="avatar" style="background-color: {author.color}">
@@ -161,7 +171,7 @@
               <div class="message-bubble">{msg.content}</div>
             {/if}
             <span class="message-time">
-              {msg.timestamp}{#if msg.edited}<span class="edited-tag">(edited)</span>{/if}
+              {formatTime(msg.created_at)}{#if msg.is_edited}<span class="edited-tag">(edited)</span>{/if}
             </span>
           </div>
         </div>

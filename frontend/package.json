@@ -38,7 +38,7 @@
     "vitest-browser-svelte": "^2.1.1"
   },
   "dependencies": {
-    "@hermitk/bluenite": "^file:../bluenite",
+    "@hermitk/bluenite": "file:../../Bluenite",
     "jwt-decode": "^4.0.0",
     "lucide-svelte": "^1.0.1"
   }

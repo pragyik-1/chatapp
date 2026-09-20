@@ -22,7 +22,7 @@ type Message struct {
 type RefreshToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
-	Token     string             `json:"token"`
+	TokenHash string             `json:"token_hash"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	IsRevoked pgtype.Bool        `json:"is_revoked"`
@@ -51,4 +51,13 @@ type User struct {
 	Status    pgtype.Int2        `json:"status"`
 	LastSeen  pgtype.Timestamptz `json:"last_seen"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type UserSetting struct {
+	UserID               pgtype.UUID        `json:"user_id"`
+	Color                string             `json:"color"`
+	Theme                string             `json:"theme"`
+	Language             string             `json:"language"`
+	NotificationsEnabled bool               `json:"notifications_enabled"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }

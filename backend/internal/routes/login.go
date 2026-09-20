@@ -49,7 +49,7 @@ func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
 
 		if _, err := queries.CreateRefreshToken(r.Context(), db.CreateRefreshTokenParams{
 			UserID:    user.ID,
-			Token:     refreshToken,
+			TokenHash: utils.HashString(refreshToken),
 			ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
 		}); err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to store refresh token")
@@ -62,7 +62,7 @@ func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
 			Expires:  expiresAt,
 			HttpOnly: true,
 			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": accessToken, "refresh_token": refreshToken})

@@ -1,178 +1,211 @@
-import type { Message, Room, User } from "$lib/types";
-import { getCookie } from "$lib/utils";
+import type {
+  User,
+  Room,
+  RoomParticipant,
+  Message,
+  UserSettings,
+  UpdateUserSettingsRequest,
+  RegisterUserRequest,
+  LoginUserRequest,
+  CreateRoomRequest,
+  SendMessageRequest,
+  EditMessageRequest,
+  DeleteMessageRequest,
+  ApiResponse,
+} from "$lib/types";
+import { getCookie, setCookie } from "$lib/utils";
 
 export class Api {
-    private baseUrl: string;
-    private token: string | null = null;
+  private baseUrl: string;
+  private accessToken: string | null = null;
+  private _refreshToken: string | null = null;
 
-    constructor(baseUrl: string) {
-        this.baseUrl = baseUrl;
-        this.token = getCookie("token") || null;
-    }
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+    this.accessToken = getCookie("access_token") || null;
+    this._refreshToken = getCookie("refresh_token") || null;
+  }
 
-    async registerUser(user: User): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(user),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to register user: ${response.statusText}`);
-        }
+  private async request<T>(url: string, options?: RequestInit): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        let errorMessage = response.statusText;
+        try {
+          const body = await response.json();
+          if (body.error) errorMessage = body.error;
+        } catch { }
+        return { data: null, error: errorMessage };
+      }
+      if (response.status === 204) {
+        return { data: null as unknown as T, error: null };
+      }
+      const data = await response.json();
+      return { data, error: null };
+    } catch (err) {
+      return { data: null, error: err instanceof Error ? err.message : 'Network error' };
     }
+  }
 
-    async loginUser(email: string, password: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to login user: ${response.statusText}`);
-        }
-        const data = await response.json();
-        this.token = data.token;
-        document.cookie = `token=${this.token}; path=/; Secure; SameSite=Strict`;
-    }
+  async registerUser(user: RegisterUserRequest): Promise<ApiResponse<User>> {
+    return this.request<User>(`${this.baseUrl}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    });
+  }
 
-    async refreshToken(): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/token/refresh`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {})
-            },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to refresh token: ${response.statusText}`);
-        }
-        const data = await response.json();
-        this.token = data.token;
-        document.cookie = `token=${this.token}; path=/; Secure; SameSite=Strict`;
+  async loginUser(user: LoginUserRequest): Promise<ApiResponse<{ access_token: string; refresh_token: string }>> {
+    const { data, error } = await this.request<{ access_token: string; refresh_token: string }>(
+      `${this.baseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    });
+    if (data) {
+      this.accessToken = data.access_token;
+      this._refreshToken = data.refresh_token;
+      setCookie("access_token", this.accessToken, 1);
+      setCookie("refresh_token", this._refreshToken, 1);
     }
+    return { data, error };
+  }
 
-    async getCurrentUser(): Promise<User> {
-        const response = await fetch(`${this.baseUrl}/users/me`, {
-            headers: { 'Authorization': `Bearer ${this.token}` },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch current user: ${response.statusText}`);
-        }
-        return response.json();
+  async refreshToken(): Promise<ApiResponse<{ access_token: string }>> {
+    const { data, error } = await this.request<{ access_token: string }>(
+      `${this.baseUrl}/token/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: this._refreshToken }),
+    });
+    if (data) {
+      this.accessToken = data.access_token;
+      document.cookie = `token=${this.accessToken}; path=/; Secure; SameSite=Strict`;
     }
+    return { data, error };
+  }
 
-    async getUserRooms(userId: string): Promise<Room[]> {
-        const response = await fetch(`${this.baseUrl}/users/${userId}/rooms`, {
-            headers: { 'Authorization': `Bearer ${this.token}` },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch rooms for user ${userId}: ${response.statusText}`);
-        }
-        return response.json();
-    }
+  async getCurrentUser(): Promise<ApiResponse<User>> {
+    return this.request<User>(`${this.baseUrl}/users/me`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` },
+    });
+  }
 
-    async createRoom(roomData: Omit<Room, 'id' | 'createdAt'>): Promise<Room> {
-        const response = await fetch(`${this.baseUrl}/rooms/create`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}` 
-            },
-            body: JSON.stringify(roomData),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to create room: ${response.statusText}`);
-        }
-        return response.json();
-    }
+  async getUserSettings(): Promise<ApiResponse<UserSettings>> {
+    return this.request<UserSettings>(`${this.baseUrl}/users/me/settings`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` },
+    });
+  }
 
-    async getRoomParticipants(roomId: string): Promise<User[]> {
-        const response = await fetch(`${this.baseUrl}/rooms/${roomId}/participants`, {
-            headers: { 'Authorization': `Bearer ${this.token}` },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch participants for room ${roomId}: ${response.statusText}`);
-        }
-        return response.json();
-    }
+  async updateUserSettings(patch: UpdateUserSettingsRequest): Promise<ApiResponse<UserSettings>> {
+    return this.request<UserSettings>(`${this.baseUrl}/users/me/settings`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`,
+      },
+      body: JSON.stringify(patch),
+    });
+  }
 
-    async addParticipant(roomId: string, userId: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/rooms/${roomId}/participants`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}` 
-            },
-            body: JSON.stringify({ userId }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to add participant to room ${roomId}: ${response.statusText}`);
-        }
-    }
+  async getUserRooms(userId: string): Promise<ApiResponse<Room[]>> {
+    return this.request<Room[]>(`${this.baseUrl}/users/${userId}/rooms`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` },
+    });
+  }
 
-    async removeParticipant(roomId: string, userId: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/rooms/${roomId}/participants`, {
-            method: 'DELETE',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}` 
-            },
-            body: JSON.stringify({ userId }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to remove participant from room ${roomId}: ${response.statusText}`);
-        }
-    }
+  async createRoom(roomData: CreateRoomRequest): Promise<ApiResponse<Room>> {
+    return this.request<Room>(`${this.baseUrl}/rooms/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify(roomData),
+    });
+  }
 
-    async getMessages(roomId: string): Promise<Message[]> {
-        const response = await fetch(`${this.baseUrl}/rooms/${roomId}/messages`, {
-            headers: { 'Authorization': `Bearer ${this.token}` },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch messages for room ${roomId}: ${response.statusText}`);
-        }
-        return response.json();
-    }
+  async getRoomParticipants(roomId: string): Promise<ApiResponse<RoomParticipant[]>> {
+    return this.request<RoomParticipant[]>(`${this.baseUrl}/rooms/${roomId}/participants`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` },
+    });
+  }
 
-    async sendMessage(roomId: string, content: string): Promise<Message> {
-        const response = await fetch(`${this.baseUrl}/rooms/${roomId}/messages`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}` 
-            },
-            body: JSON.stringify({ content }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to send message to room ${roomId}: ${response.statusText}`);
-        }
-        return response.json();
-    }
+  async addParticipant(roomId: string, userId: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request<{ message: string }>(`${this.baseUrl}/rooms/${roomId}/participants`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
 
-    async editMessage(messageId: string, content: string): Promise<Message> {
-        const response = await fetch(`${this.baseUrl}/rooms/messages/${messageId}`, {
-            method: 'PUT',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}` 
-            },
-            body: JSON.stringify({ content }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to edit message ${messageId}: ${response.statusText}`);
-        }
-        return response.json();
-    }
+  async removeParticipant(roomId: string, userId: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request<{ message: string }>(`${this.baseUrl}/rooms/${roomId}/participants`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
 
-    async deleteMessage(messageId: string): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/rooms/messages/${messageId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${this.token}` },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to delete message ${messageId}: ${response.statusText}`);
-        }
+  async getMessages(roomId: string): Promise<ApiResponse<Message[]>> {
+    return this.request<Message[]>(`${this.baseUrl}/rooms/${roomId}/messages`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` },
+    });
+  }
+
+  async sendMessage(roomId: string, senderId: string, content: string, replyToId?: string | null): Promise<ApiResponse<Message>> {
+    const body: SendMessageRequest = {
+      room_id: roomId,
+      sender_id: senderId,
+      content,
+    };
+    if (replyToId !== undefined) {
+      body.reply_to_id = replyToId;
     }
+    return this.request<Message>(`${this.baseUrl}/rooms/${roomId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async editMessage(messageId: string, senderId: string, content: string): Promise<ApiResponse<Message>> {
+    const body: EditMessageRequest = {
+      sender_id: senderId,
+      content,
+    };
+    return this.request<Message>(`${this.baseUrl}/rooms/messages/${messageId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteMessage(messageId: string, senderId: string): Promise<ApiResponse<null>> {
+    const body: DeleteMessageRequest = {
+      sender_id: senderId,
+    };
+    return this.request<null>(`${this.baseUrl}/rooms/messages/${messageId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify(body),
+    });
+  }
 }
 
 export const api = new Api('http://localhost:8080');

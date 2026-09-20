@@ -1,10 +1,13 @@
 package routes
 
 import (
+	"chat_app/internal/constants"
 	"chat_app/internal/db"
 	"chat_app/internal/utils"
 	"errors"
+	"math/rand/v2"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
@@ -14,6 +17,7 @@ type registerRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Color    string `json:"color"`
 }
 
 func registerUser(queries *db.Queries) http.HandlerFunc {
@@ -26,6 +30,14 @@ func registerUser(queries *db.Queries) http.HandlerFunc {
 		if req.Username == "" || req.Email == "" || req.Password == "" {
 			utils.WriteError(w, http.StatusBadRequest, "username, email, and password are required")
 			return
+		}
+
+		if req.Color != "" && !slices.Contains(constants.USER_COLORS, req.Color) {
+			utils.WriteError(w, http.StatusBadRequest, "invalid color")
+			return
+		}
+		if req.Color == "" {
+			req.Color = constants.USER_COLORS[rand.IntN(len(constants.USER_COLORS))]
 		}
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -45,6 +57,15 @@ func registerUser(queries *db.Queries) http.HandlerFunc {
 				utils.WriteError(w, http.StatusConflict, "a user with this email already exists")
 				return
 			}
+			utils.WriteError(w, http.StatusInternalServerError, "failed to register user")
+			return
+		}
+
+		_, err = queries.CreateUserSettings(r.Context(), db.CreateUserSettingsParams{
+			UserID: user.ID,
+			Color:  req.Color,
+		})
+		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to register user")
 			return
 		}

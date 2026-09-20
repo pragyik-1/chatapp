@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/cors"
 )
 
 func MakeRouter(queries *db.Queries) *chi.Mux {
@@ -18,7 +19,16 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 		log.Fatal("JWT_SECRET is not set")
 	}
 	r := chi.NewRouter()
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:5174"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
 
+	r.Use(c.Handler)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 
@@ -35,7 +45,11 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 
 		r.Route("/users", func(r chi.Router) {
 			r.Get("/{userId}/rooms", getUserRooms(queries))
-			r.Get("/me", getCurrentUser(queries))
+			r.Route("/me", func(r chi.Router) {
+				r.Get("/", getCurrentUser(queries))
+				r.Get("/settings", getUserSettings(queries))
+				r.Patch("/settings", updateUserSettings(queries))
+			})
 		})
 		r.Route("/rooms", func(r chi.Router) {
 			r.Post("/create", createRoom(queries))

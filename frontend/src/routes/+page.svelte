@@ -1,14 +1,28 @@
 <script lang="ts">
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import ChatArea from '$lib/components/ChatArea.svelte';
-	import { rooms, messages, currentUser } from '$lib/types';
+	import {
+		fakeRooms,
+		fakeRoomParticipants,
+		fakeMessages,
+		fakeUsers,
+		fakeCurrentUser,
+	} from '$lib/types';
 	import type { Room, Message } from '$lib/types';
 
+	// ---- Fake preview data ----
+	// Swap these out for real backend calls via `api` from '$lib/api' when wiring up.
+	let rooms = $state<Room[]>(fakeRooms);
+	let allMessages = $state<Message[]>(fakeMessages);
+
+	const currentUserId = fakeCurrentUser.id;
+	const getParticipant = (userId: string) => fakeUsers[userId];
+	const memberCount = (roomId: string) => fakeRoomParticipants[roomId]?.length ?? 0;
+
 	let selectedRoom = $state<Room | null>(null);
-	let allMessages = $state<Message[]>(messages);
 
 	let filteredMessages = $derived(
-		selectedRoom ? allMessages.filter((m) => m.roomId === selectedRoom!.id) : []
+		selectedRoom ? allMessages.filter((m) => m.room_id === selectedRoom!.id) : []
 	);
 
 	function handleSelect(room: Room) {
@@ -19,17 +33,22 @@
 		if (!selectedRoom) return;
 		const newMsg: Message = {
 			id: `msg-${Date.now()}`,
-			roomId: selectedRoom.id,
-			userId: currentUser.id,
+			room_id: selectedRoom.id,
+			sender_id: currentUserId,
 			content,
-			timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+			reply_to_id: null,
+			is_edited: false,
+			edited_at: null,
+			created_at: new Date().toISOString(),
 		};
 		allMessages = [...allMessages, newMsg];
 	}
 
 	function handleEdit(messageId: string, newContent: string) {
 		allMessages = allMessages.map((m) =>
-			m.id === messageId ? { ...m, content: newContent, edited: true } : m
+			m.id === messageId
+				? { ...m, content: newContent, is_edited: true, edited_at: new Date().toISOString() }
+				: m
 		);
 	}
 
@@ -43,7 +62,9 @@
 	<ChatArea
 		room={selectedRoom}
 		messages={filteredMessages}
-		{currentUser}
+		currentUserId={currentUserId}
+		memberCount={selectedRoom ? memberCount(selectedRoom.id) : 0}
+		{getParticipant}
 		onSend={handleSend}
 		onEdit={handleEdit}
 		onDelete={handleDelete}

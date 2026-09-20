@@ -1,3 +1,4 @@
+import { redirect } from "@sveltejs/kit";
 import { jwtDecode } from "jwt-decode";
 
 export function isJWTValid(token: string): boolean {
@@ -9,5 +10,11 @@ export function isJWTValid(token: string): boolean {
     } catch (error) {
         console.error("Invalid JWT:", error);
         return false;
+    }
+}
+
+export function requireAuth(locals: App.Locals): void {
+    if (!locals.isAuthenticated) {
+        throw redirect(303, "/login");
     }
 }

@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { Input, Button, Card } from '@hermitk/bluenite'
+  import { goto } from '$app/navigation'
+  import { api } from '$lib/api'
+  import { Input, Button, Card, toast } from '@hermitk/bluenite'
 
   let email = $state('')
   let password = $state('')
@@ -14,10 +16,22 @@
     return Object.keys(errors).length === 0
   }
 
-  function handleSubmit(e: Event) {
+  async function handleSubmit(e: Event) {
     e.preventDefault()
     if (!validate()) return
-    // TODO: connect to backend
+    const { error } = await api.loginUser({ email, password })
+    if (error) {
+      toast.show({
+        variant: 'danger',
+        message: error
+      })
+    } else {
+      toast.show({
+        variant: 'success',
+        message: 'Login successful'
+      })
+      goto('/')
+    }
   }
 </script>
 

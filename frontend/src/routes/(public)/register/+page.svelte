@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { Input, Button, Card } from '@hermitk/bluenite'
+  import { api } from '$lib/api'
+  import { COLOR_PALETTE } from '$lib/constants'
+  import { colorVar } from '$lib/utils'
+  import { Input, Button, Card, toast } from '@hermitk/bluenite'
+  import { goto } from '$app/navigation'
 
   let username = $state('')
   let email = $state('')
   let password = $state('')
   let confirmPassword = $state('')
+  let color = $state(COLOR_PALETTE[0])
+  let error = $state('')
   let errors = $state<{
     username?: string
     email?: string
@@ -24,10 +30,23 @@
     return Object.keys(errors).length === 0
   }
 
-  function handleSubmit(e: Event) {
+  async function handleSubmit(e: Event) {
     e.preventDefault()
     if (!validate()) return
-    // TODO: connect to backend
+    color = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)]
+    const { error } = await api.registerUser({ username, email, password, color })
+    if (error) {
+      toast.show({
+        variant: 'danger',
+        message: error
+      })
+    } else {
+      toast.show({
+        variant: 'success',
+        message: 'Account created successfully'
+      })
+      goto('/login')
+    }
   }
 </script>
 
@@ -66,6 +85,9 @@
         bind:value={confirmPassword}
         error={errors.confirmPassword}
       />
+      {#if error}
+        <p class="form-error">{error}</p>
+      {/if}
       <Button type="submit" class="submit-btn">Create account</Button>
     </form>
 
@@ -116,6 +138,12 @@
   :global(.submit-btn) {
     width: 100%;
     margin-top: 0.5rem;
+  }
+
+  .form-error {
+    color: var(--danger);
+    font-size: 0.85rem;
+    margin: 0;
   }
 
   .auth-switch {

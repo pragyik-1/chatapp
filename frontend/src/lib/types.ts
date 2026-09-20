@@ -1,147 +1,268 @@
+import { colorVar } from "$lib/utils";
+
 export type User = {
   id: string
-  name: string
-  color: string
+  username: string
+  email: string
+  password_hash: string
+  status: number | null
+  last_seen: string | null
+  created_at: string
 }
-
-export type RoomType = 'dm' | 'group'
 
 export type Room = {
   id: string
-  name: string
-  type: RoomType
-  participants: string[]
-  lastMessage?: string
-  lastMessageTime?: string
+  name: string | null
+  is_group: boolean
+  created_by: string
+  created_at: string
 }
 
 export type Message = {
   id: string
-  roomId: string
-  userId: string
+  room_id: string
+  sender_id: string
   content: string
-  timestamp: string
-  edited?: boolean
+  reply_to_id: string | null
+  is_edited: boolean
+  edited_at: string | null
+  created_at: string
 }
 
-export const currentUser: User = {
+export type RoomParticipant = {
+  id: string
+  username: string
+  email: string
+  status: number | null
+  last_seen: string | null
+  color: string | null
+  joined_at: string
+}
+
+export type RegisterUserRequest = {
+  username: string
+  email: string
+  password: string
+  color?: string
+}
+
+export type LoginUserRequest = {
+  email: string
+  password: string
+}
+
+export type RefreshTokenRequest = {
+  refresh_token: string
+}
+
+export type CreateRoomRequest = {
+  name: string
+  is_group: boolean
+  created_by: string
+}
+
+export type RoomParticipantRequest = {
+  user_id: string
+}
+
+export type SendMessageRequest = {
+  room_id: string
+  sender_id: string
+  content: string
+  reply_to_id?: string | null
+}
+
+export type EditMessageRequest = {
+  sender_id: string
+  content: string
+}
+
+export type DeleteMessageRequest = {
+  sender_id: string
+}
+
+export type ApiResponse<T> = {
+  data: T | null;
+  error: string | null;
+};
+
+export type UserSettings = {
+  user_id: string
+  color: string
+  language: string
+  notifications_enabled: boolean
+  updated_at: string
+}
+
+export type UpdateUserSettingsRequest = {
+  color?: string
+  theme?: string
+  language?: string
+  notifications_enabled?: boolean
+}
+
+// ---- Fake data for previewing the UI ----
+// Replace these with real backend responses when wiring up the API.
+
+export type ParticipantDisplay = {
+  name: string
+  color: string
+}
+
+export const fakeUsers: Record<string, ParticipantDisplay> = {
+  'user-1': { name: 'You', color: colorVar('--primary') },
+  'user-2': { name: 'Alice', color: colorVar('--success') },
+  'user-3': { name: 'Bob', color: colorVar('--warn') },
+  'user-4': { name: 'Charlie', color: colorVar('--secondary') },
+}
+
+export const fakeCurrentUser: User = {
   id: 'user-1',
-  name: 'You',
-  color: 'var(--primary)',
+  username: 'You',
+  email: 'you@example.com',
+  password_hash: 'fake',
+  status: 1,
+  last_seen: '2026-09-07T10:00:00Z',
+  created_at: '2026-01-01T00:00:00Z',
 }
 
-export const users: User[] = [
-  currentUser,
-  { id: 'user-2', name: 'Alice', color: 'var(--success)' },
-  { id: 'user-3', name: 'Bob', color: 'var(--warn)' },
-  { id: 'user-4', name: 'Charlie', color: 'var(--secondary)' },
-]
-
-export const rooms: Room[] = [
+export const fakeRooms: Room[] = [
   {
     id: 'room-1',
     name: 'Alice',
-    type: 'dm',
-    participants: ['user-1', 'user-2'],
-    lastMessage: 'See you tomorrow!',
-    lastMessageTime: '10:30 AM',
+    is_group: false,
+    created_by: 'user-1',
+    created_at: '2026-01-01T00:00:00Z',
   },
   {
     id: 'room-2',
     name: 'Bob',
-    type: 'dm',
-    participants: ['user-1', 'user-3'],
-    lastMessage: 'Thanks for the help',
-    lastMessageTime: '9:15 AM',
+    is_group: false,
+    created_by: 'user-1',
+    created_at: '2026-01-01T00:00:00Z',
   },
   {
     id: 'room-3',
     name: 'General',
-    type: 'group',
-    participants: ['user-1', 'user-2', 'user-3', 'user-4'],
-    lastMessage: 'Anyone up for lunch?',
-    lastMessageTime: '11:00 AM',
+    is_group: true,
+    created_by: 'user-1',
+    created_at: '2026-01-01T00:00:00Z',
   },
   {
     id: 'room-4',
     name: 'Design Team',
-    type: 'group',
-    participants: ['user-1', 'user-2', 'user-4'],
-    lastMessage: 'Check out the new mockups',
-    lastMessageTime: 'Yesterday',
+    is_group: true,
+    created_by: 'user-1',
+    created_at: '2026-01-01T00:00:00Z',
   },
 ]
 
-export const messages: Message[] = [
+export const fakeRoomParticipants: Record<string, string[]> = {
+  'room-1': ['user-1', 'user-2'],
+  'room-2': ['user-1', 'user-3'],
+  'room-3': ['user-1', 'user-2', 'user-3', 'user-4'],
+  'room-4': ['user-1', 'user-2', 'user-4'],
+}
+
+export const fakeMessages: Message[] = [
   {
     id: 'msg-1',
-    roomId: 'room-1',
-    userId: 'user-2',
+    room_id: 'room-1',
+    sender_id: 'user-2',
     content: 'Hey! How are you?',
-    timestamp: '10:25 AM',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T09:15:00Z',
   },
   {
     id: 'msg-2',
-    roomId: 'room-1',
-    userId: 'user-1',
-    content: 'Doing well, thanks!',
-    timestamp: '10:26 AM',
+    room_id: 'room-1',
+    sender_id: 'user-1',
+    content: 'Doing well, thanks! Just finished the layout work.',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T09:16:00Z',
   },
   {
     id: 'msg-3',
-    roomId: 'room-1',
-    userId: 'user-2',
-    content: 'See you tomorrow!',
-    timestamp: '10:30 AM',
+    room_id: 'room-1',
+    sender_id: 'user-2',
+    content: 'Nice! See you tomorrow!',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T09:30:00Z',
   },
   {
     id: 'msg-4',
-    roomId: 'room-2',
-    userId: 'user-3',
+    room_id: 'room-2',
+    sender_id: 'user-3',
     content: 'Can you review my PR?',
-    timestamp: '9:00 AM',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T11:02:00Z',
   },
   {
     id: 'msg-5',
-    roomId: 'room-2',
-    userId: 'user-1',
-    content: 'Sure, I will take a look',
-    timestamp: '9:10 AM',
+    room_id: 'room-2',
+    sender_id: 'user-1',
+    content: 'Sure, I will take a look.',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T11:10:00Z',
   },
   {
     id: 'msg-6',
-    roomId: 'room-2',
-    userId: 'user-3',
-    content: 'Thanks for the help',
-    timestamp: '9:15 AM',
+    room_id: 'room-3',
+    sender_id: 'user-4',
+    content: 'Good morning everyone! Standup in 10 minutes.',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T13:00:00Z',
   },
   {
     id: 'msg-7',
-    roomId: 'room-3',
-    userId: 'user-4',
-    content: 'Good morning everyone!',
-    timestamp: '10:45 AM',
+    room_id: 'room-3',
+    sender_id: 'user-2',
+    content: 'Morning! I’ll be there.',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T13:01:00Z',
   },
-  { id: 'msg-8', roomId: 'room-3', userId: 'user-2', content: 'Morning!', timestamp: '10:46 AM' },
+  {
+    id: 'msg-8',
+    room_id: 'room-3',
+    sender_id: 'user-3',
+    content: 'Anyone up for lunch?',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-07T13:05:00Z',
+  },
   {
     id: 'msg-9',
-    roomId: 'room-3',
-    userId: 'user-3',
-    content: 'Anyone up for lunch?',
-    timestamp: '11:00 AM',
+    room_id: 'room-4',
+    sender_id: 'user-4',
+    content: 'Check out the new mockups I pushed.',
+    reply_to_id: null,
+    is_edited: false,
+    edited_at: null,
+    created_at: '2026-09-06T16:20:00Z',
   },
   {
     id: 'msg-10',
-    roomId: 'room-4',
-    userId: 'user-4',
-    content: 'Check out the new mockups',
-    timestamp: 'Yesterday',
-  },
-  {
-    id: 'msg-11',
-    roomId: 'room-4',
-    userId: 'user-2',
-    content: 'Looks great!',
-    timestamp: 'Yesterday',
+    room_id: 'room-4',
+    sender_id: 'user-2',
+    content: 'Looks great! The colors really pop.',
+    reply_to_id: null,
+    is_edited: true,
+    edited_at: '2026-09-06T16:25:00Z',
+    created_at: '2026-09-06T16:24:00Z',
   },
 ]

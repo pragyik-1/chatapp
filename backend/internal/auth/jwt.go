@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -36,7 +37,9 @@ func JWTAuth(secret string) func(http.Handler) http.Handler {
 				utils.WriteError(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
-			r = r.WithContext(context.WithValue(r.Context(), constants.UserIDContextKey, userID))
+
+			var id [16]byte = userID.Bytes
+			r = r.WithContext(context.WithValue(r.Context(), constants.UserIDContextKey, uuid.UUID(id)))
 			next.ServeHTTP(w, r)
 		})
 	}
