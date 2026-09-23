@@ -1,9 +1,9 @@
 <script lang="ts">
   import { api } from '$lib/api'
   import { COLOR_PALETTE } from '$lib/constants'
-  import { colorVar } from '$lib/utils'
   import { Input, Button, Card, toast } from '@hermitk/bluenite'
   import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths';
 
   let username = $state('')
   let email = $state('')
@@ -45,7 +45,7 @@
         variant: 'success',
         message: 'Account created successfully'
       })
-      goto('/login')
+      goto(resolve('/'))
     }
   }
 </script>

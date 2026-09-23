@@ -1,4 +1,4 @@
-import { colorVar } from "$lib/utils";
+import { colorVar } from '$lib/utils'
 
 export type User = {
   id: string
@@ -51,8 +51,13 @@ export type LoginUserRequest = {
   password: string
 }
 
+export type LoginUserResponse = {
+  access_token: string
+  refresh_token_hash: string
+}
+
 export type RefreshTokenRequest = {
-  refresh_token: string
+  refresh_token_hash: string
 }
 
 export type CreateRoomRequest = {
@@ -82,9 +87,9 @@ export type DeleteMessageRequest = {
 }
 
 export type ApiResponse<T> = {
-  data: T | null;
-  error: string | null;
-};
+  data: T | null
+  error: string | null
+}
 
 export type UserSettings = {
   user_id: string

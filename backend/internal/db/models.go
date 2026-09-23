@@ -56,7 +56,6 @@ type User struct {
 type UserSetting struct {
 	UserID               pgtype.UUID        `json:"user_id"`
 	Color                string             `json:"color"`
-	Theme                string             `json:"theme"`
 	Language             string             `json:"language"`
 	NotificationsEnabled bool               `json:"notifications_enabled"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`

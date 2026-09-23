@@ -19,3 +19,8 @@ ORDER BY r.created_at DESC;
 SELECT id, username, email, status, last_seen, created_at, password_hash
 FROM users
 WHERE email = $1;
+
+-- name: GetUsersByName :many
+SELECT id, username, email, status, last_seen, created_at, password_hash
+FROM users
+WHERE username = $1;

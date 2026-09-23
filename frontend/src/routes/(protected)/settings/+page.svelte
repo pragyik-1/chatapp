@@ -1,18 +1,13 @@
 <script lang="ts">
   import { api } from '$lib/api'
-  import { COLOR_PALETTE, THEMES } from '$lib/constants'
+  import { COLOR_PALETTE } from '$lib/constants'
   import { colorVar } from '$lib/utils'
-  import { Card, Button, Select, theme, toggleTheme, Switch } from '@hermitk/bluenite'
+  import { Card, Button, theme, toggleTheme, Switch } from '@hermitk/bluenite'
   import { toast } from '@hermitk/bluenite'
 
   let color = $state(COLOR_PALETTE[0])
   let loading = $state(true)
   let saving = $state(false)
-
-  const themeOptions = THEMES.map((t) => ({
-    label: t.charAt(0).toUpperCase() + t.slice(1),
-    value: t,
-  }))
 
   api.getUserSettings()
     .then((response) => {

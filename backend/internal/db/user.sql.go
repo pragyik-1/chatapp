@@ -105,6 +105,50 @@ func (q *Queries) GetUserRooms(ctx context.Context, userID pgtype.UUID) ([]Room,
 	return items, nil
 }
 
+const GetUsersByName = `-- name: GetUsersByName :many
+SELECT id, username, email, status, last_seen, created_at, password_hash
+FROM users
+WHERE username = $1
+`
+
+type GetUsersByNameRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Username     string             `json:"username"`
+	Email        string             `json:"email"`
+	Status       pgtype.Int2        `json:"status"`
+	LastSeen     pgtype.Timestamptz `json:"last_seen"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	PasswordHash string             `json:"password_hash"`
+}
+
+func (q *Queries) GetUsersByName(ctx context.Context, username string) ([]GetUsersByNameRow, error) {
+	rows, err := q.db.Query(ctx, GetUsersByName, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUsersByNameRow
+	for rows.Next() {
+		var i GetUsersByNameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Status,
+			&i.LastSeen,
+			&i.CreatedAt,
+			&i.PasswordHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const RegisterUser = `-- name: RegisterUser :one
 INSERT INTO users (username, email, password_hash)
 VALUES ($1, $2, $3)

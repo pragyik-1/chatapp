@@ -13,7 +13,6 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     color VARCHAR(50) NOT NULL DEFAULT '--primary',
-    theme VARCHAR(20) NOT NULL DEFAULT 'dark',
     language VARCHAR(10) NOT NULL DEFAULT 'en',
     notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

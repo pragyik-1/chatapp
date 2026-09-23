@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
   import { api } from '$lib/api'
   import { Input, Button, Card, toast } from '@hermitk/bluenite'
 
@@ -30,7 +31,7 @@
         variant: 'success',
         message: 'Login successful'
       })
-      goto('/')
+      goto(resolve('/'))
     }
   }
 </script>

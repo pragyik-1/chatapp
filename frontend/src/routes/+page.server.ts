@@ -1,5 +1,5 @@
-import { requireAuth } from "$lib/server/auth";
+import { requireAuth } from '$lib/server/auth'
 
-export const load = ({ locals, url }) => {
-  requireAuth(locals);
+export const load = ({ locals }) => {
+  requireAuth(locals)
 }

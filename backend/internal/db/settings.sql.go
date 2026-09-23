@@ -14,7 +14,7 @@ import (
 const CreateUserSettings = `-- name: CreateUserSettings :one
 INSERT INTO user_settings (user_id, color)
 VALUES ($1, $2)
-RETURNING user_id, color, theme, language, notifications_enabled, updated_at
+RETURNING user_id, color, language, notifications_enabled, updated_at
 `
 
 type CreateUserSettingsParams struct {
@@ -28,7 +28,6 @@ func (q *Queries) CreateUserSettings(ctx context.Context, arg CreateUserSettings
 	err := row.Scan(
 		&i.UserID,
 		&i.Color,
-		&i.Theme,
 		&i.Language,
 		&i.NotificationsEnabled,
 		&i.UpdatedAt,
@@ -37,7 +36,7 @@ func (q *Queries) CreateUserSettings(ctx context.Context, arg CreateUserSettings
 }
 
 const GetUserSettings = `-- name: GetUserSettings :one
-SELECT user_id, color, theme, language, notifications_enabled, updated_at FROM user_settings
+SELECT user_id, color, language, notifications_enabled, updated_at FROM user_settings
 WHERE user_id = $1
 `
 
@@ -47,7 +46,6 @@ func (q *Queries) GetUserSettings(ctx context.Context, userID pgtype.UUID) (User
 	err := row.Scan(
 		&i.UserID,
 		&i.Color,
-		&i.Theme,
 		&i.Language,
 		&i.NotificationsEnabled,
 		&i.UpdatedAt,
@@ -62,7 +60,7 @@ SET color = COALESCE($2, color),
     notifications_enabled = COALESCE($4, notifications_enabled),
     updated_at = NOW()
 WHERE user_id = $1
-RETURNING user_id, color, theme, language, notifications_enabled, updated_at
+RETURNING user_id, color, language, notifications_enabled, updated_at
 `
 
 type UpdateUserSettingsParams struct {
@@ -83,7 +81,6 @@ func (q *Queries) UpdateUserSettings(ctx context.Context, arg UpdateUserSettings
 	err := row.Scan(
 		&i.UserID,
 		&i.Color,
-		&i.Theme,
 		&i.Language,
 		&i.NotificationsEnabled,
 		&i.UpdatedAt,

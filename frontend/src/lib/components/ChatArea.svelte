@@ -107,10 +107,6 @@
     }
   })
 
-  function getAuthor(userId: string): ParticipantDisplay | undefined {
-    return getParticipant(userId)
-  }
-
   function formatTime(iso: string): string {
     if (!iso) return ''
     const date = new Date(iso)
@@ -131,7 +127,7 @@
     <div class="messages" bind:this={messagesEl}>
       {#each messages as msg (msg.id)}
         {@const isOwn = msg.sender_id === currentUserId}
-        {@const author = getAuthor(msg.sender_id)}
+        {@const author = getParticipant(msg.sender_id)}
         <div class="message" class:own={isOwn}>
           {#if !isOwn && author}
             <div class="avatar" style="background-color: {author.color}">

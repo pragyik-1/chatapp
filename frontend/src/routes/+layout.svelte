@@ -3,8 +3,9 @@
   import { NavBar, Button, ToastManager, toggleTheme, Row } from '@hermitk/bluenite'
   import { theme } from '@hermitk/bluenite'
   import favicon from '$lib/assets/favicon.svg'
-  import { HouseIcon, MoonIcon, Settings2Icon, SettingsIcon, SunIcon } from 'lucide-svelte'
+  import { HouseIcon, MoonIcon, Settings2Icon, SunIcon } from 'lucide-svelte'
   import { goto } from '$app/navigation'
+  import { resolve } from '$app/paths'
 
   let { children } = $props()
 </script>
@@ -14,19 +15,19 @@
 </svelte:head>
 
 <NavBar behavior="static" height="52px" mobile={false}>
-  <Button variant="ghost" class="app-title" onclick={() => goto("/")}>
+  <Button variant="ghost" class="app-title" onclick={() => goto(resolve('/'))}>
     <HouseIcon size={16} />
     ChatApp
   </Button>
   <Row>
     <Button variant="ghost" size="sm" onclick={toggleTheme}>
       {#if theme.value === 'dark'}
-       <SunIcon size={16} />
+        <SunIcon size={16} />
       {:else}
         <MoonIcon size={16} />
       {/if}
     </Button>
-    <Button onclick={() => goto('/settings')} variant="ghost" size="sm">
+    <Button onclick={() => goto(resolve('/settings'))} variant="ghost" size="sm">
       <Settings2Icon size={16} />
     </Button>
   </Row>

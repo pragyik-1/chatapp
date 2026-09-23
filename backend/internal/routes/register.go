@@ -57,7 +57,7 @@ func registerUser(queries *db.Queries) http.HandlerFunc {
 				utils.WriteError(w, http.StatusConflict, "a user with this email already exists")
 				return
 			}
-			utils.WriteError(w, http.StatusInternalServerError, "failed to register user")
+			utils.WriteError(w, http.StatusInternalServerError, "failed to register user1")
 			return
 		}
 
@@ -66,7 +66,7 @@ func registerUser(queries *db.Queries) http.HandlerFunc {
 			Color:  req.Color,
 		})
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "failed to register user")
+			utils.WriteError(w, http.StatusInternalServerError, "failed to register user2")
 			return
 		}
 

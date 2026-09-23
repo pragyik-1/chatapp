@@ -27,6 +27,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	GetUserRooms(ctx context.Context, userID pgtype.UUID) ([]Room, error)
 	GetUserSettings(ctx context.Context, userID pgtype.UUID) (UserSetting, error)
+	GetUsersByName(ctx context.Context, username string) ([]GetUsersByNameRow, error)
 	IsParticipant(ctx context.Context, arg IsParticipantParams) (bool, error)
 	RegisterUser(ctx context.Context, arg RegisterUserParams) (RegisterUserRow, error)
 	RemoveRoomParticipant(ctx context.Context, arg RemoveRoomParticipantParams) error

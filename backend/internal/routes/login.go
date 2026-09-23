@@ -40,6 +40,7 @@ func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
 		}
 
 		accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID, secret)
+		refreshTokenHash := utils.HashString(refreshToken)
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to generate token pair")
 			return
@@ -49,7 +50,7 @@ func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
 
 		if _, err := queries.CreateRefreshToken(r.Context(), db.CreateRefreshTokenParams{
 			UserID:    user.ID,
-			TokenHash: utils.HashString(refreshToken),
+			TokenHash: refreshTokenHash,
 			ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
 		}); err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to store refresh token")
@@ -57,14 +58,14 @@ func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:     "refresh_token",
-			Value:    refreshToken,
+			Name:     "refresh_token_hash",
+			Value:    refreshTokenHash,
 			Expires:  expiresAt,
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
 		})
 
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": accessToken, "refresh_token": refreshToken})
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": accessToken, "refresh_token_hash": refreshTokenHash})
 	}
 }

@@ -9,7 +9,7 @@ import (
 )
 
 type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token_hash"`
 }
 
 func refreshToken(queries *db.Queries, secret string) http.HandlerFunc {
@@ -24,7 +24,7 @@ func refreshToken(queries *db.Queries, secret string) http.HandlerFunc {
 			return
 		}
 
-		refreshToken, err := queries.GetRefreshTokenByToken(r.Context(), utils.HashString(req.RefreshToken))
+		refreshToken, err := queries.GetRefreshTokenByToken(r.Context(), req.RefreshToken)
 		if err != nil {
 			utils.WriteError(w, http.StatusUnauthorized, "invalid refresh token")
 			return
@@ -48,7 +48,7 @@ func refreshToken(queries *db.Queries, secret string) http.HandlerFunc {
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": token})
 	}
 }
 
@@ -64,7 +64,7 @@ func revokeRefreshToken(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		err := queries.RevokeRefreshToken(r.Context(), utils.HashString(req.RefreshToken))
+		err := queries.RevokeRefreshToken(r.Context(), req.RefreshToken)
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to revoke refresh token")
 			return
