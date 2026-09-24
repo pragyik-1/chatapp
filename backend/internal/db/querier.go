@@ -19,17 +19,18 @@ type Querier interface {
 	DeleteMessage(ctx context.Context, arg DeleteMessageParams) error
 	EditMessage(ctx context.Context, arg EditMessageParams) (Message, error)
 	GetMessageByID(ctx context.Context, id pgtype.UUID) (Message, error)
-	GetRefreshTokenByToken(ctx context.Context, tokenHash string) (RefreshToken, error)
-	GetRefreshTokenByUserID(ctx context.Context, userID pgtype.UUID) (RefreshToken, error)
+	GetRefreshTokenHashByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetRefreshTokenHashByUserID(ctx context.Context, userID pgtype.UUID) (RefreshToken, error)
+	GetRoomByID(ctx context.Context, id pgtype.UUID) (Room, error)
 	GetRoomMessages(ctx context.Context, arg GetRoomMessagesParams) ([]GetRoomMessagesRow, error)
 	GetRoomParticipants(ctx context.Context, roomID pgtype.UUID) ([]GetRoomParticipantsRow, error)
 	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	GetUserRooms(ctx context.Context, userID pgtype.UUID) ([]Room, error)
 	GetUserSettings(ctx context.Context, userID pgtype.UUID) (UserSetting, error)
-	GetUsersByName(ctx context.Context, username string) ([]GetUsersByNameRow, error)
 	IsParticipant(ctx context.Context, arg IsParticipantParams) (bool, error)
 	RegisterUser(ctx context.Context, arg RegisterUserParams) (RegisterUserRow, error)
+	RegisterUserWithSettings(ctx context.Context, arg RegisterUserWithSettingsParams) (RegisterUserWithSettingsRow, error)
 	RemoveRoomParticipant(ctx context.Context, arg RemoveRoomParticipantParams) error
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeRefreshTokensByUserID(ctx context.Context, userID pgtype.UUID) error

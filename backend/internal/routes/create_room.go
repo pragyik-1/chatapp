@@ -3,18 +3,14 @@ package routes
 import (
 	"chat_app/internal/db"
 	"chat_app/internal/utils"
-	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type CreateRoomRequest struct {
-	Name      string    `json:"name"`
-	IsGroup   bool      `json:"is_group"`
-	CreatedBy uuid.UUID `json:"created_by"`
+	Name    string `json:"name"`
+	IsGroup bool   `json:"is_group"`
 }
 
 func createRoom(queries *db.Queries) http.HandlerFunc {
@@ -29,21 +25,12 @@ func createRoom(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		if req.CreatedBy == (uuid.UUID{}) {
-			utils.WriteError(w, http.StatusBadRequest, "created by is required")
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-
-		userId := pgtype.UUID{Bytes: req.CreatedBy, Valid: true}
-
-		if _, err := queries.GetUserByID(r.Context(), userId); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				utils.WriteError(w, http.StatusNotFound, "created_by user does not exist")
-				return
-			}
-			utils.WriteError(w, http.StatusInternalServerError, "failed to create room")
-			return
-		}
+		userId := pgtype.UUID{Bytes: userID, Valid: true}
 
 		room, err := queries.CreateRoom(r.Context(), db.CreateRoomParams{
 			Name:      pgtype.Text{String: req.Name, Valid: req.Name != ""},

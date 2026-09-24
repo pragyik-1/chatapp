@@ -3,6 +3,11 @@ INSERT INTO rooms (name, is_group, created_by)
 VALUES ($1, $2, $3)
 RETURNING id, name, is_group, created_by, created_at;
 
+-- name: GetRoomByID :one
+SELECT id, name, is_group, created_by, created_at
+FROM rooms
+WHERE id = $1;
+
 -- name: AddRoomParticipant :exec
 INSERT INTO room_participants (room_id, user_id)
 VALUES ($1, $2)

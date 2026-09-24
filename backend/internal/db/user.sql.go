@@ -105,50 +105,6 @@ func (q *Queries) GetUserRooms(ctx context.Context, userID pgtype.UUID) ([]Room,
 	return items, nil
 }
 
-const GetUsersByName = `-- name: GetUsersByName :many
-SELECT id, username, email, status, last_seen, created_at, password_hash
-FROM users
-WHERE username = $1
-`
-
-type GetUsersByNameRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Username     string             `json:"username"`
-	Email        string             `json:"email"`
-	Status       pgtype.Int2        `json:"status"`
-	LastSeen     pgtype.Timestamptz `json:"last_seen"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	PasswordHash string             `json:"password_hash"`
-}
-
-func (q *Queries) GetUsersByName(ctx context.Context, username string) ([]GetUsersByNameRow, error) {
-	rows, err := q.db.Query(ctx, GetUsersByName, username)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetUsersByNameRow
-	for rows.Next() {
-		var i GetUsersByNameRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Username,
-			&i.Email,
-			&i.Status,
-			&i.LastSeen,
-			&i.CreatedAt,
-			&i.PasswordHash,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const RegisterUser = `-- name: RegisterUser :one
 INSERT INTO users (username, email, password_hash)
 VALUES ($1, $2, $3)
@@ -173,6 +129,54 @@ type RegisterUserRow struct {
 func (q *Queries) RegisterUser(ctx context.Context, arg RegisterUserParams) (RegisterUserRow, error) {
 	row := q.db.QueryRow(ctx, RegisterUser, arg.Username, arg.Email, arg.PasswordHash)
 	var i RegisterUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Status,
+		&i.LastSeen,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const RegisterUserWithSettings = `-- name: RegisterUserWithSettings :one
+WITH new_user AS (
+    INSERT INTO users (username, email, password_hash)
+    VALUES ($1, $2, $3)
+    RETURNING id, username, email, password_hash, status, last_seen, created_at
+),
+settings_insert AS (
+    INSERT INTO user_settings (user_id, color)
+    SELECT id, $4 FROM new_user
+)
+SELECT id, username, email, status, last_seen, created_at FROM new_user
+`
+
+type RegisterUserWithSettingsParams struct {
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
+	Color        string `json:"color"`
+}
+
+type RegisterUserWithSettingsRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Username  string             `json:"username"`
+	Email     string             `json:"email"`
+	Status    pgtype.Int2        `json:"status"`
+	LastSeen  pgtype.Timestamptz `json:"last_seen"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) RegisterUserWithSettings(ctx context.Context, arg RegisterUserWithSettingsParams) (RegisterUserWithSettingsRow, error) {
+	row := q.db.QueryRow(ctx, RegisterUserWithSettings,
+		arg.Username,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Color,
+	)
+	var i RegisterUserWithSettingsRow
 	err := row.Scan(
 		&i.ID,
 		&i.Username,

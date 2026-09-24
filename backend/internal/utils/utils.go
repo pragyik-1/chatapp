@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -14,15 +15,9 @@ import (
 func WriteJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func ParseJSONRequestBody(w http.ResponseWriter, r *http.Request, data any) error {
-	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid request body")
-		return err
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("failed to encode response: %v", err)
 	}
-	return nil
 }
 
 func ValidateRequestBody(w http.ResponseWriter, r *http.Request, data any) error {

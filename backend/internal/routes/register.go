@@ -46,10 +46,11 @@ func registerUser(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		user, err := queries.RegisterUser(r.Context(), db.RegisterUserParams{
+		user, err := queries.RegisterUserWithSettings(r.Context(), db.RegisterUserWithSettingsParams{
 			Username:     req.Username,
 			Email:        req.Email,
 			PasswordHash: string(hash),
+			Color:        req.Color,
 		})
 		if err != nil {
 			var pgErr *pgconn.PgError
@@ -57,16 +58,7 @@ func registerUser(queries *db.Queries) http.HandlerFunc {
 				utils.WriteError(w, http.StatusConflict, "a user with this email already exists")
 				return
 			}
-			utils.WriteError(w, http.StatusInternalServerError, "failed to register user1")
-			return
-		}
-
-		_, err = queries.CreateUserSettings(r.Context(), db.CreateUserSettingsParams{
-			UserID: user.ID,
-			Color:  req.Color,
-		})
-		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, "failed to register user2")
+			utils.WriteError(w, http.StatusInternalServerError, "failed to register user")
 			return
 		}
 

@@ -35,6 +35,7 @@ services:
       DB_SSLMODE: disable
       JWT_SECRET: "2f0f1a9d7c1e335b7e9d1j3e5b7e9d1c3f5b7e9d1ckf5b7e9d1c3f5b7e9d1c3j"
       PORT: 8080
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:5174"
     depends_on:
       postgres:
         condition: service_healthy

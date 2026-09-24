@@ -62,7 +62,7 @@
     </form>
 
     <p class="auth-switch">
-      Don't have an account? <a href="/register">Sign up</a>
+      Don't have an account? <a href={resolve('/register')}>Sign up</a>
     </p>
   </Card>
 </div>

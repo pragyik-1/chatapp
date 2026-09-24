@@ -12,7 +12,6 @@ import (
 
 type updateUserSettingsRequest struct {
 	Color                *string `json:"color"`
-	Theme                *string `json:"theme"`
 	Language             *string `json:"language"`
 	NotificationsEnabled *bool   `json:"notifications_enabled"`
 }
@@ -50,10 +49,6 @@ func updateUserSettings(queries *db.Queries) http.HandlerFunc {
 
 		if req.Color != nil && !slices.Contains(constants.USER_COLORS, *req.Color) {
 			utils.WriteError(w, http.StatusBadRequest, "invalid color")
-			return
-		}
-		if req.Theme != nil && !slices.Contains(constants.USER_THEMES, *req.Theme) {
-			utils.WriteError(w, http.StatusBadRequest, "invalid theme")
 			return
 		}
 

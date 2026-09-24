@@ -3,6 +3,18 @@ INSERT INTO users (username, email, password_hash)
 VALUES ($1, $2, $3)
 RETURNING id, username, email, status, last_seen, created_at;
 
+-- name: RegisterUserWithSettings :one
+WITH new_user AS (
+    INSERT INTO users (username, email, password_hash)
+    VALUES ($1, $2, $3)
+    RETURNING *
+),
+settings_insert AS (
+    INSERT INTO user_settings (user_id, color)
+    SELECT id, $4 FROM new_user
+)
+SELECT id, username, email, status, last_seen, created_at FROM new_user;
+
 -- name: GetUserByID :one
 SELECT id, username, email, status, last_seen, created_at
 FROM users
@@ -19,8 +31,3 @@ ORDER BY r.created_at DESC;
 SELECT id, username, email, status, last_seen, created_at, password_hash
 FROM users
 WHERE email = $1;
-
--- name: GetUsersByName :many
-SELECT id, username, email, status, last_seen, created_at, password_hash
-FROM users
-WHERE username = $1;

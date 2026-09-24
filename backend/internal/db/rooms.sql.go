@@ -52,6 +52,25 @@ func (q *Queries) CreateRoom(ctx context.Context, arg CreateRoomParams) (Room, e
 	return i, err
 }
 
+const GetRoomByID = `-- name: GetRoomByID :one
+SELECT id, name, is_group, created_by, created_at
+FROM rooms
+WHERE id = $1
+`
+
+func (q *Queries) GetRoomByID(ctx context.Context, id pgtype.UUID) (Room, error) {
+	row := q.db.QueryRow(ctx, GetRoomByID, id)
+	var i Room
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.IsGroup,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const GetRoomParticipants = `-- name: GetRoomParticipants :many
 SELECT u.id, u.username, u.email, u.status, u.last_seen, us.color, rp.joined_at
 FROM room_participants rp

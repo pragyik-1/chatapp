@@ -47,6 +47,9 @@ func JWTAuth(secret string) func(http.Handler) http.Handler {
 
 func validateJWT(tokenString string, secret string) (pgtype.UUID, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
 		return []byte(secret), nil
 	})
 
@@ -82,7 +85,7 @@ func GenerateJWT(userID pgtype.UUID, secret string) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-func GenerateRefreshToken(userID pgtype.UUID, secret string) (string, error) {
+func GenerateRefreshToken() (string, error) {
 	bytes := make([]byte, 64)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
@@ -96,7 +99,7 @@ func GenerateTokenPair(userID pgtype.UUID, secret string) (string, string, error
 		return "", "", err
 	}
 
-	refreshToken, err := GenerateRefreshToken(userID, secret)
+	refreshToken, err := GenerateRefreshToken()
 	if err != nil {
 		return "", "", err
 	}

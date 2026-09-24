@@ -1,9 +1,9 @@
--- name: GetRefreshTokenByUserID :one
+-- name: GetRefreshTokenHashByUserID :one
 SELECT id, user_id, token_hash, expires_at, created_at, is_revoked
 FROM refresh_tokens
 WHERE user_id = $1;
 
--- name: GetRefreshTokenByToken :one
+-- name: GetRefreshTokenHashByHash :one
 SELECT id, user_id, token_hash, expires_at, created_at, is_revoked
 FROM refresh_tokens
 WHERE token_hash = $1;

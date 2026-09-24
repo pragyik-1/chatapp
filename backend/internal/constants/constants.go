@@ -1,6 +1,7 @@
 package constants
 
-const UserIDContextKey = "user_id"
+type ctxKey string
+
+const UserIDContextKey ctxKey = "user_id"
 
 var USER_COLORS = []string{"--primary", "--secondary", "--success", "--warn", "--danger", "--info"}
-var USER_THEMES = []string{"dark", "light"}

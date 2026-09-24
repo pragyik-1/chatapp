@@ -47,14 +47,14 @@ func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context) error {
 	return err
 }
 
-const GetRefreshTokenByToken = `-- name: GetRefreshTokenByToken :one
+const GetRefreshTokenHashByHash = `-- name: GetRefreshTokenHashByHash :one
 SELECT id, user_id, token_hash, expires_at, created_at, is_revoked
 FROM refresh_tokens
 WHERE token_hash = $1
 `
 
-func (q *Queries) GetRefreshTokenByToken(ctx context.Context, tokenHash string) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, GetRefreshTokenByToken, tokenHash)
+func (q *Queries) GetRefreshTokenHashByHash(ctx context.Context, tokenHash string) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, GetRefreshTokenHashByHash, tokenHash)
 	var i RefreshToken
 	err := row.Scan(
 		&i.ID,
@@ -67,14 +67,14 @@ func (q *Queries) GetRefreshTokenByToken(ctx context.Context, tokenHash string) 
 	return i, err
 }
 
-const GetRefreshTokenByUserID = `-- name: GetRefreshTokenByUserID :one
+const GetRefreshTokenHashByUserID = `-- name: GetRefreshTokenHashByUserID :one
 SELECT id, user_id, token_hash, expires_at, created_at, is_revoked
 FROM refresh_tokens
 WHERE user_id = $1
 `
 
-func (q *Queries) GetRefreshTokenByUserID(ctx context.Context, userID pgtype.UUID) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, GetRefreshTokenByUserID, userID)
+func (q *Queries) GetRefreshTokenHashByUserID(ctx context.Context, userID pgtype.UUID) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, GetRefreshTokenHashByUserID, userID)
 	var i RefreshToken
 	err := row.Scan(
 		&i.ID,

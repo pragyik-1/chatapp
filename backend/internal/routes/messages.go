@@ -14,19 +14,13 @@ import (
 )
 
 type SendMessageRequest struct {
-	RoomID   uuid.UUID  `json:"room_id"`
-	SenderID uuid.UUID  `json:"sender_id"`
-	Content  string     `json:"content"`
-	ReplyTo  *uuid.UUID `json:"reply_to_id"`
+	RoomID  uuid.UUID  `json:"room_id"`
+	Content string     `json:"content"`
+	ReplyTo *uuid.UUID `json:"reply_to_id"`
 }
 
 type EditMessageRequest struct {
-	SenderID uuid.UUID `json:"sender_id"`
-	Content  string    `json:"content"`
-}
-
-type DeleteMessageRequest struct {
-	SenderID uuid.UUID `json:"sender_id"`
+	Content string `json:"content"`
 }
 
 func sendMessage(queries *db.Queries) http.HandlerFunc {
@@ -36,12 +30,18 @@ func sendMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		if req.RoomID == (uuid.UUID{}) || req.SenderID == (uuid.UUID{}) || req.Content == "" {
-			utils.WriteError(w, http.StatusBadRequest, "room_id, sender_id, and content are required")
+		if req.RoomID == (uuid.UUID{}) || req.Content == "" {
+			utils.WriteError(w, http.StatusBadRequest, "room_id and content are required")
 			return
 		}
 
-		if !_isValidParticipant(r, queries, req.RoomID, req.SenderID) {
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		if !_isValidParticipant(r, queries, req.RoomID, userID) {
 			utils.WriteError(w, http.StatusForbidden, "user is not a participant of this room")
 			return
 		}
@@ -54,7 +54,7 @@ func sendMessage(queries *db.Queries) http.HandlerFunc {
 
 		msg, err := queries.SendMessage(r.Context(), db.SendMessageParams{
 			RoomID:    pgtype.UUID{Bytes: req.RoomID, Valid: true},
-			SenderID:  pgtype.UUID{Bytes: req.SenderID, Valid: true},
+			SenderID:  pgtype.UUID{Bytes: userID, Valid: true},
 			Content:   req.Content,
 			ReplyToID: replyToID,
 		})
@@ -74,6 +74,17 @@ func getRoomMessages(queries *db.Queries) http.HandlerFunc {
 		roomID, err := uuid.Parse(roomIDStr)
 		if err != nil {
 			utils.WriteError(w, http.StatusBadRequest, "invalid room_id")
+			return
+		}
+
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		if !_isValidParticipant(r, queries, roomID, userID) {
+			utils.WriteError(w, http.StatusForbidden, "user is not a participant of this room")
 			return
 		}
 
@@ -118,19 +129,25 @@ func editMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		if req.SenderID == (uuid.UUID{}) || req.Content == "" {
-			utils.WriteError(w, http.StatusBadRequest, "sender_id and content are required")
+		if req.Content == "" {
+			utils.WriteError(w, http.StatusBadRequest, "content is required")
 			return
 		}
 
-		if !_isMessageSender(r, queries, messageID, req.SenderID, w) {
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		if !_isMessageSender(r, queries, messageID, userID, w) {
 			return
 		}
 
 		msg, err := queries.EditMessage(r.Context(), db.EditMessageParams{
 			Content:  req.Content,
 			ID:       pgtype.UUID{Bytes: messageID, Valid: true},
-			SenderID: pgtype.UUID{Bytes: req.SenderID, Valid: true},
+			SenderID: pgtype.UUID{Bytes: userID, Valid: true},
 		})
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to edit message")
@@ -150,24 +167,19 @@ func deleteMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		var req DeleteMessageRequest
-		if err := utils.ParseJSONRequestBody(w, r, &req); err != nil {
-			utils.WriteError(w, http.StatusBadRequest, "invalid request body")
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 
-		if req.SenderID == (uuid.UUID{}) {
-			utils.WriteError(w, http.StatusBadRequest, "sender_id is required")
-			return
-		}
-
-		if !_isMessageSender(r, queries, messageID, req.SenderID, w) {
+		if !_isMessageSender(r, queries, messageID, userID, w) {
 			return
 		}
 
 		err = queries.DeleteMessage(r.Context(), db.DeleteMessageParams{
 			ID:       pgtype.UUID{Bytes: messageID, Valid: true},
-			SenderID: pgtype.UUID{Bytes: req.SenderID, Valid: true},
+			SenderID: pgtype.UUID{Bytes: userID, Valid: true},
 		})
 		if err != nil {
 			utils.WriteError(w, http.StatusInternalServerError, "failed to delete message")
