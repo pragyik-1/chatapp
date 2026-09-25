@@ -48,6 +48,7 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 		r.Use(internalMiddleware.JWTAuth(secret))
 
 		r.Route("/users", func(r chi.Router) {
+			r.Get("/search", searchUsers(queries))
 			r.Route("/me", func(r chi.Router) {
 				r.Get("/", getCurrentUser(queries))
 				r.Get("/rooms", getUserRooms(queries))

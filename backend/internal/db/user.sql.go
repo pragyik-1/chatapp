@@ -187,3 +187,61 @@ func (q *Queries) RegisterUserWithSettings(ctx context.Context, arg RegisterUser
 	)
 	return i, err
 }
+
+const SearchUsers = `-- name: SearchUsers :many
+SELECT u.id, u.username, u.email, u.status, u.last_seen, u.created_at, s.color
+FROM users u
+LEFT JOIN user_settings s ON s.user_id = u.id
+WHERE (
+    u.username ILIKE '%' || $1 || '%'
+    OR u.email = $1
+    OR u.id::text = $1
+)
+AND u.id <> $2
+ORDER BY u.username
+LIMIT $3
+`
+
+type SearchUsersParams struct {
+	SearchQuery   pgtype.Text `json:"search_query"`
+	ExcludeUserID pgtype.UUID `json:"exclude_user_id"`
+	ResultLimit   int32       `json:"result_limit"`
+}
+
+type SearchUsersRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Username  string             `json:"username"`
+	Email     string             `json:"email"`
+	Status    pgtype.Int2        `json:"status"`
+	LastSeen  pgtype.Timestamptz `json:"last_seen"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Color     pgtype.Text        `json:"color"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error) {
+	rows, err := q.db.Query(ctx, SearchUsers, arg.SearchQuery, arg.ExcludeUserID, arg.ResultLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchUsersRow
+	for rows.Next() {
+		var i SearchUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Status,
+			&i.LastSeen,
+			&i.CreatedAt,
+			&i.Color,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

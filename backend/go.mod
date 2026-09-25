@@ -7,7 +7,10 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 )
 
-require github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+require (
+	github.com/coder/websocket v1.8.15 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+)
 
 require (
 	github.com/google/uuid v1.6.0

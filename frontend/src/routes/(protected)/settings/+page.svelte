@@ -8,17 +8,31 @@
 	import { resolve } from '$app/paths';
 
 	let color = $state(COLOR_PALETTE[0]);
+	let userId = $state('');
 	let loading = $state(true);
 	let saving = $state(false);
 	let loggingOut = $state(false);
 
-	api
-		.getUserSettings()
-		.then((response) => {
-			if (response.error) {
-				toast.show({ message: response.error, variant: 'danger' });
-			} else if (response.data) {
-				color = response.data.color;
+	// Show the cached user ID immediately and refresh it from the API below.
+	if (typeof localStorage !== 'undefined') {
+		userId = localStorage.getItem('user_id') ?? '';
+	}
+
+	Promise.all([api.getUserSettings(), api.getCurrentUser()])
+		.then(([settingsRes, userRes]) => {
+			if (settingsRes.error) {
+				toast.show({ message: settingsRes.error, variant: 'danger' });
+			} else if (settingsRes.data) {
+				color = settingsRes.data.color;
+			}
+			if (userRes.error) {
+				toast.show({ message: userRes.error, variant: 'danger' });
+			} else if (userRes.data) {
+				userId = userRes.data.id;
+				// Cache the ID so it is available offline / on next visit.
+				if (typeof localStorage !== 'undefined') {
+					localStorage.setItem('user_id', userRes.data.id);
+				}
 			}
 		})
 		.finally(() => (loading = false));
@@ -58,6 +72,25 @@
 	{:else}
 		<Card class="settings-card">
 			<h1 class="settings-title">Settings</h1>
+
+			<div class="settings-field">
+				<span class="settings-label">Your user ID</span>
+				<div class="user-id-box" title="Your unique user ID">
+					<code>{userId || '—'}</code>
+					<button
+						class="copy-btn"
+						aria-label="Copy user ID"
+						onclick={() => {
+							if (userId) {
+								navigator.clipboard?.writeText(userId);
+								toast.show({ message: 'User ID copied', variant: 'success' });
+							}
+						}}
+					>
+						Copy
+					</button>
+				</div>
+			</div>
 
 			<div class="settings-field">
 				<span class="settings-label">Color</span>
@@ -131,6 +164,44 @@
 	.color-picker {
 		display: flex;
 		gap: 0.6rem;
+	}
+
+	.user-id-box {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		background-color: var(--input);
+		border: 1px solid var(--border);
+		border-radius: var(--round-md);
+		padding: 0.55rem 0.75rem;
+	}
+
+	.user-id-box code {
+		font-size: 0.8rem;
+		color: var(--primary-text);
+		word-break: break-all;
+		min-width: 0;
+	}
+
+	.copy-btn {
+		flex-shrink: 0;
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: var(--round-sm);
+		color: var(--secondary-text);
+		font: inherit;
+		font-size: 0.7rem;
+		padding: 0.2rem 0.5rem;
+		cursor: pointer;
+		transition:
+			background-color 0.15s,
+			color 0.15s;
+	}
+
+	.copy-btn:hover {
+		background-color: var(--surface-hover);
+		color: var(--primary-text);
 	}
 
 	.color-swatch {

@@ -5,10 +5,39 @@ import (
 	"chat_app/internal/utils"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+func searchUsers(queries *db.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := strings.TrimSpace(r.URL.Query().Get("q"))
+		if query == "" {
+			utils.WriteError(w, http.StatusBadRequest, "query parameter q is required")
+			return
+		}
+
+		userID, ok := utils.GetUserIDFromContext(r.Context())
+		if !ok {
+			utils.WriteError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		results, err := queries.SearchUsers(r.Context(), db.SearchUsersParams{
+			SearchQuery:   pgtype.Text{String: query, Valid: true},
+			ExcludeUserID: pgtype.UUID{Bytes: userID, Valid: true},
+			ResultLimit:   20,
+		})
+		if err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, "failed to search users")
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, results)
+	}
+}
 
 func getUserRooms(queries *db.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

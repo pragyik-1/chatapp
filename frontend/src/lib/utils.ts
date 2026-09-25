@@ -24,3 +24,53 @@ export function deleteCookie(name: string): void {
 export function colorVar(color: string): string {
   return `var(${color})`
 }
+
+/**
+ * Derives a short initials label from a username. Since the backend does not
+ * store first/last names, multi-word names use the first letter of each word
+ * (up to two words); single-word names fall back to their first two letters.
+ */
+export function getInitials(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+  const parts = trimmed.split(/\s+/)
+  if (parts.length > 1) {
+    return parts
+      .slice(0, 2)
+      .map((part) => part.charAt(0))
+      .join('')
+      .toUpperCase()
+  }
+  return trimmed.slice(0, 2).toUpperCase()
+}
+
+const TOKEN_EXPIRY_MARGIN_MS = 15_000
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const part = token.split('.')[1]
+  if (!part) return null
+  try {
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/')
+    const decoded = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
+        .join(''),
+    )
+    return JSON.parse(decoded) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Client-side check that an access token is structurally sound and not close to
+ * expiring. The signature cannot be verified without the server secret, so an
+ * expired or malformed token simply triggers a refresh via the refresh token.
+ */
+export function isTokenValid(token: string | null): boolean {
+  if (!token) return false
+  const payload = decodeJwtPayload(token)
+  if (!payload || typeof payload.exp !== 'number') return false
+  return payload.exp * 1000 > Date.now() + TOKEN_EXPIRY_MARGIN_MS
+}

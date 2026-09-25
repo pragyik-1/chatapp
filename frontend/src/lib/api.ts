@@ -11,25 +11,47 @@ import type {
   SendMessageRequest,
   ApiResponse,
   LoginUserResponse,
+  UserSearchResult,
 } from '$lib/types'
-import { getCookie, setCookie, deleteCookie } from '$lib/utils'
+import { getCookie, setCookie, deleteCookie, isTokenValid } from '$lib/utils'
 
 export class Api {
   private baseUrl: string
   private accessToken: string | null = null
+  /** Debounced refresh call so concurrent authed requests share one renewal. */
+  private refreshInFlight: Promise<string | null> | null = null
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
     this.accessToken = getCookie('access_token') || null
   }
 
-  private get authToken(): string | null {
-    return getCookie('access_token') || this.accessToken
-  }
-
   resetAuth(): void {
     this.accessToken = null
     deleteCookie('access_token')
+  }
+
+  /**
+   * Validates the current access token and, when it is missing or expired,
+   * automatically renews it via the refresh token. The renewed JWT is cached
+   * in the `access_token` cookie and returned. Returns null when no valid
+   * session exists.
+   */
+  async getValidAuthToken(): Promise<string | null> {
+    const current = getCookie('access_token') || this.accessToken
+    if (current && isTokenValid(current)) return current
+
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.renewAccessToken().finally(() => {
+        this.refreshInFlight = null
+      })
+    }
+    return this.refreshInFlight
+  }
+
+  private async renewAccessToken(): Promise<string | null> {
+    const { data } = await this.refreshToken()
+    return data?.access_token ?? null
   }
 
   async loginUser(user: LoginUserRequest): Promise<ApiResponse<LoginUserResponse>> {
@@ -46,10 +68,16 @@ export class Api {
   }
 
   async logoutUser(): Promise<ApiResponse<null>> {
+    const token = await this.getValidAuthToken()
+    if (!token) {
+      // No valid session to revoke server-side; clear local credentials anyway.
+      this.resetAuth()
+      return { data: null, error: null }
+    }
     const { data, error } = await this.request<null>(`${this.baseUrl}/users/me/logout`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
     })
     if (!error) {
@@ -58,14 +86,20 @@ export class Api {
     return { data, error }
   }
 
-  async refreshToken(refreshToken: string): Promise<ApiResponse<{ access_token: string }>> {
+  /**
+   * Renews the access token. Pass `refreshToken` when the raw token is only
+   * available to the caller (e.g. the SvelteKit hook reads the HttpOnly cookie
+   * server-side); when omitted, the backend reads the cookie directly.
+   */
+  async refreshToken(refreshToken?: string): Promise<ApiResponse<{ access_token: string }>> {
+    const options: RequestInit = { method: 'POST' }
+    if (refreshToken) {
+      options.headers = { 'Content-Type': 'application/json' }
+      options.body = JSON.stringify({ refresh_token: refreshToken })
+    }
     const { data, error } = await this.request<{ access_token: string }>(
       `${this.baseUrl}/token/refresh`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      },
+      options,
     )
     if (data) {
       setCookie('access_token', data.access_token, 1)
@@ -83,57 +117,80 @@ export class Api {
   }
 
   async getCurrentUser(): Promise<ApiResponse<User>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<User>(`${this.baseUrl}/users/me`, {
-      headers: { Authorization: `Bearer ${this.authToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
   }
 
   async getUserSettings(): Promise<ApiResponse<UserSettings>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<UserSettings>(`${this.baseUrl}/users/me/settings`, {
-      headers: { Authorization: `Bearer ${this.authToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
   }
 
   async updateUserSettings(patch: UpdateUserSettingsRequest): Promise<ApiResponse<UserSettings>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<UserSettings>(`${this.baseUrl}/users/me/settings`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(patch),
     })
   }
 
   async getUserRooms(): Promise<ApiResponse<Room[]>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<Room[]>(`${this.baseUrl}/users/me/rooms`, {
-      headers: { Authorization: `Bearer ${this.authToken}` },
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  async searchUsers(query: string): Promise<ApiResponse<UserSearchResult[]>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
+    const params = new URLSearchParams({ q: query })
+    return this.request<UserSearchResult[]>(`${this.baseUrl}/users/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
     })
   }
 
   async createRoom(roomData: CreateRoomRequest): Promise<ApiResponse<Room>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<Room>(`${this.baseUrl}/rooms/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(roomData),
     })
   }
 
   async getRoomParticipants(roomId: string): Promise<ApiResponse<RoomParticipant[]>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<RoomParticipant[]>(`${this.baseUrl}/rooms/${roomId}/participants`, {
-      headers: { Authorization: `Bearer ${this.authToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
   }
 
   async addParticipant(roomId: string, userId: string): Promise<ApiResponse<{ message: string }>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<{ message: string }>(`${this.baseUrl}/rooms/${roomId}/participants`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ user_id: userId }),
     })
@@ -143,19 +200,23 @@ export class Api {
     roomId: string,
     userId: string,
   ): Promise<ApiResponse<{ message: string }>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<{ message: string }>(`${this.baseUrl}/rooms/${roomId}/participants`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ user_id: userId }),
     })
   }
 
   async getMessages(roomId: string): Promise<ApiResponse<Message[]>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<Message[]>(`${this.baseUrl}/rooms/${roomId}/messages`, {
-      headers: { Authorization: `Bearer ${this.authToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
   }
 
@@ -171,32 +232,38 @@ export class Api {
     if (replyToId !== undefined) {
       body.reply_to_id = replyToId
     }
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<Message>(`${this.baseUrl}/rooms/${roomId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     })
   }
 
   async editMessage(messageId: string, content: string): Promise<ApiResponse<Message>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<Message>(`${this.baseUrl}/rooms/messages/${messageId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ content }),
     })
   }
 
   async deleteMessage(messageId: string): Promise<ApiResponse<null>> {
+    const token = await this.getValidAuthToken()
+    if (!token) return { data: null, error: 'Not authenticated' }
     return this.request<null>(`${this.baseUrl}/rooms/messages/${messageId}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${this.authToken}`,
+        Authorization: `Bearer ${token}`,
       },
     })
   }

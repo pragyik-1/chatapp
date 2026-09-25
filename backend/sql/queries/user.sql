@@ -31,3 +31,16 @@ ORDER BY r.created_at DESC;
 SELECT id, username, email, status, last_seen, created_at, password_hash
 FROM users
 WHERE email = $1;
+
+-- name: SearchUsers :many
+SELECT u.id, u.username, u.email, u.status, u.last_seen, u.created_at, s.color
+FROM users u
+LEFT JOIN user_settings s ON s.user_id = u.id
+WHERE (
+    u.username ILIKE '%' || @search_query || '%'
+    OR u.email = @search_query
+    OR u.id::text = @search_query
+)
+AND u.id <> @exclude_user_id
+ORDER BY u.username
+LIMIT @result_limit;

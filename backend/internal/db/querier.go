@@ -34,6 +34,7 @@ type Querier interface {
 	RemoveRoomParticipant(ctx context.Context, arg RemoveRoomParticipantParams) error
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeRefreshTokensByUserID(ctx context.Context, userID pgtype.UUID) error
+	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error)
 	SendMessage(ctx context.Context, arg SendMessageParams) (Message, error)
 	UpdateUserSettings(ctx context.Context, arg UpdateUserSettingsParams) (UserSetting, error)
 }

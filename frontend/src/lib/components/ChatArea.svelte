@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { Button, Col, Dropdown, Textarea } from '@hermitk/bluenite';
 	import { EllipsisVertical, Pencil, Trash2 } from 'lucide-svelte';
-	import type { Room, Message, ParticipantDisplay } from '$lib/types';
+	import { colorVar, getInitials } from '$lib/utils';
+	import type { Room, Message, ParticipantDisplay, UserSearchResult } from '$lib/types';
 
 	let {
 		room,
+		roomName,
+		pendingUser,
 		messages,
 		currentUserId,
 		memberCount,
@@ -14,6 +17,8 @@
 		onDelete,
 	}: {
 		room: Room | null;
+		roomName?: string;
+		pendingUser?: UserSearchResult | null;
 		messages: Message[];
 		currentUserId: string;
 		memberCount: number;
@@ -43,7 +48,7 @@
 
 	function send() {
 		const trimmed = input.trim();
-		if (!trimmed || !room) return;
+		if (!trimmed || (!room && !pendingUser)) return;
 		onSend(trimmed);
 		input = '';
 		if (textareaEl) textareaEl.style.height = 'auto';
@@ -118,7 +123,7 @@
 {#if room}
 	<div class="chat-area">
 		<div class="chat-header">
-			<h2>{room.name ?? 'Direct Message'}</h2>
+			<h2>{roomName ?? room.name ?? 'Direct Message'}</h2>
 			{#if room.is_group}
 				<span class="chat-meta">{memberCount} members</span>
 			{/if}
@@ -131,7 +136,7 @@
 				<div class="message" class:own={isOwn}>
 					{#if !isOwn && author}
 						<div class="avatar" style="background-color: {author.color}">
-							{author.name.charAt(0)}
+							{getInitials(author.name)}
 						</div>
 					{/if}
 					<div class="message-body">
@@ -208,6 +213,43 @@
 			</Button>
 		</Col>
 	</Dropdown>
+{:else if pendingUser}
+	<div class="chat-area">
+		<div class="chat-header">
+			<h2>{pendingUser.username}</h2>
+		</div>
+
+		<div class="messages pending-messages">
+			<div class="pending-hint">
+				<div
+					class="pending-avatar"
+					style="background-color: {colorVar(pendingUser.color || '--primary')}"
+				>
+					{getInitials(pendingUser.username)}
+				</div>
+				<div>
+					<p>
+						This is the start of your conversation with <strong>{pendingUser.username}</strong>.
+					</p>
+					<p class="pending-note">The room is created when you send your first message.</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="message-input">
+			<div class="textarea-wrap">
+				<textarea
+					class="chat-textarea"
+					bind:this={textareaEl}
+					bind:value={input}
+					placeholder="Type a message..."
+					oninput={autoResize}
+					onkeydown={handleKeydown}
+					rows="1"></textarea>
+			</div>
+			<Button onclick={send} disabled={!input.trim()}>Send</Button>
+		</div>
+	</div>
 {:else}
 	<div class="chat-empty">
 		<div class="empty-icon">💬</div>
@@ -411,6 +453,45 @@
 
 	.chat-textarea::placeholder {
 		color: var(--muted-text);
+	}
+
+	.pending-messages {
+		align-items: center;
+		justify-content: center;
+	}
+
+	.pending-hint {
+		display: flex;
+		align-items: center;
+		gap: 0.85rem;
+		max-width: 340px;
+		text-align: left;
+		color: var(--secondary-text);
+		font-size: 0.9rem;
+		line-height: 1.5;
+	}
+
+	.pending-hint p {
+		margin: 0;
+	}
+
+	.pending-note {
+		font-size: 0.8rem;
+		color: var(--muted-text);
+		margin-top: 0.25rem;
+	}
+
+	.pending-avatar {
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.15rem;
+		font-weight: 600;
+		color: var(--bg);
+		flex-shrink: 0;
 	}
 
 	.chat-empty {

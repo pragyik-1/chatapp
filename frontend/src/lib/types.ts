@@ -98,3 +98,13 @@ export type ParticipantDisplay = {
   name: string
   color: string
 }
+
+export type UserSearchResult = {
+  id: string
+  username: string
+  email: string
+  status: number | null
+  last_seen: string | null
+  created_at: string
+  color: string | null
+}
