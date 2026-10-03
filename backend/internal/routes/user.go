@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func searchUsers(queries *db.Queries) http.HandlerFunc {
+func searchUsers(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		query := strings.TrimSpace(r.URL.Query().Get("q"))
 		if query == "" {
@@ -39,7 +39,7 @@ func searchUsers(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func getUserRooms(queries *db.Queries) http.HandlerFunc {
+func getUserRooms(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := utils.GetUserIDFromContext(r.Context())
 		if !ok {
@@ -57,7 +57,7 @@ func getUserRooms(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func getCurrentUser(queries *db.Queries) http.HandlerFunc {
+func getCurrentUser(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := utils.GetUserIDFromContext(r.Context())
 		if !ok {

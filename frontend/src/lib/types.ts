@@ -108,3 +108,26 @@ export type UserSearchResult = {
   created_at: string
   color: string | null
 }
+
+export type MessageDeletedPayload = {
+  message_id: string
+  room_id: string
+}
+
+export type RealtimeStatus = 'connecting' | 'open' | 'reconnecting' | 'offline'
+
+/**renaming one is a breaking change for every deployed client.*/
+export type ServerEventType = 'message_created' | 'message_updated' | 'message_deleted'
+
+/** A frame pushed by the server. `data` matches the listed event's payload. */
+export type ServerEvent = {
+  type: ServerEventType
+  data: Message | MessageDeletedPayload
+}
+
+export type ClientEventType = 'subscribe' | 'unsubscribe'
+
+export type ClientEvent = {
+  type: ClientEventType
+  room_id?: string
+}

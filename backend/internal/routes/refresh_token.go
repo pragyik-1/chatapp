@@ -26,7 +26,7 @@ func refreshTokenFromRequest(r *http.Request) string {
 	return ""
 }
 
-func refreshToken(queries *db.Queries, secret string) http.HandlerFunc {
+func refreshToken(queries db.Querier, secret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := refreshTokenFromRequest(r)
 		if token == "" {

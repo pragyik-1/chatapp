@@ -16,7 +16,7 @@ type updateUserSettingsRequest struct {
 	NotificationsEnabled *bool   `json:"notifications_enabled"`
 }
 
-func getUserSettings(queries *db.Queries) http.HandlerFunc {
+func getUserSettings(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := utils.GetUserIDFromContext(r.Context())
 		if !ok {
@@ -34,7 +34,7 @@ func getUserSettings(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func updateUserSettings(queries *db.Queries) http.HandlerFunc {
+func updateUserSettings(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := utils.GetUserIDFromContext(r.Context())
 		if !ok {

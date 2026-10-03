@@ -1,3 +1,6 @@
+import { WEBSOCKET_PATH, WEBSOCKET_TOKEN_PARAM } from '$lib/constants'
+import type { Message } from '$lib/types'
+
 const sharedCookieOptions = 'path=/; Secure; SameSite=Strict'
 
 export function getCookie(name: string): string | null {
@@ -61,6 +64,38 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Derives a WebSocket URL from the HTTP base URL, carrying an access token as a
+ * query parameter. Browsers cannot set an Authorization header on a WebSocket
+ * handshake, so the token travels in the query string instead.
+ *
+ * The scheme is mapped rather than hard-coded so a secure origin yields `wss:`
+ * without a second URL constant.
+ */
+export function websocketUrl(baseUrl: string, token: string): string {
+  const url = new URL(baseUrl)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  url.pathname = WEBSOCKET_PATH
+  url.search = new URLSearchParams({ [WEBSOCKET_TOKEN_PARAM]: token }).toString()
+  return url.toString()
+}
+
+/**
+ * Inserts or replaces a message in a list keyed by id, preserving order.
+ *
+ * Used for both a newly received message and an edited one. Deduplicating by id
+ * is what lets a message the local user just sent be appended by the REST
+ * response and then be ignored when its realtime event arrives.
+ */
+export function upsertMessage(messages: Message[], message: Message): Message[] {
+  const index = messages.findIndex((m) => m.id === message.id)
+  if (index === -1) return [...messages, message]
+  if (messages[index] === message) return messages
+  const next = [...messages]
+  next[index] = message
+  return next
 }
 
 /**

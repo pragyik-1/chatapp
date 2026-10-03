@@ -2,7 +2,13 @@
 	import { Button, Col, Dropdown, Textarea } from '@hermitk/bluenite';
 	import { EllipsisVertical, Pencil, Trash2 } from 'lucide-svelte';
 	import { colorVar, getInitials } from '$lib/utils';
-	import type { Room, Message, ParticipantDisplay, UserSearchResult } from '$lib/types';
+	import type {
+		Room,
+		Message,
+		ParticipantDisplay,
+		RealtimeStatus,
+		UserSearchResult
+	} from '$lib/types';
 
 	let {
 		room,
@@ -12,6 +18,7 @@
 		currentUserId,
 		memberCount,
 		getParticipant,
+		connectionState = 'offline',
 		onSend,
 		onEdit,
 		onDelete,
@@ -23,6 +30,9 @@
 		currentUserId: string;
 		memberCount: number;
 		getParticipant: (userId: string) => ParticipantDisplay | undefined;
+		/** Realtime connection state, rendered as a banner. Optional so the
+		 *  component still works when no socket is in use. */
+		connectionState?: RealtimeStatus;
 		onSend: (content: string) => void;
 		onEdit: (messageId: string, content: string) => void;
 		onDelete: (messageId: string) => void;
@@ -129,6 +139,14 @@
 			{/if}
 		</div>
 
+		{#if connectionState === 'reconnecting' || connectionState === 'offline'}
+			<div class="connection-banner" role="status">
+				{connectionState === 'offline'
+					? 'No connection. Messages will not be sent until the connection is restored.'
+					: 'Reconnecting. New messages will appear once the connection is back.'}
+			</div>
+		{/if}
+
 		<div class="messages" bind:this={messagesEl}>
 			{#each messages as msg (msg.id)}
 				{@const isOwn = msg.sender_id === currentUserId}
@@ -231,7 +249,7 @@
 					<p>
 						This is the start of your conversation with <strong>{pendingUser.username}</strong>.
 					</p>
-					<p class="pending-note">The room is created when you send your first message.</p>
+					<p class="pending-note">Send a message to start the conversation.</p>
 				</div>
 			</div>
 		</div>
@@ -284,6 +302,15 @@
 	.chat-meta {
 		font-size: 0.8rem;
 		color: var(--secondary-text);
+	}
+
+	.connection-banner {
+		background-color: var(--surface-hover);
+		color: var(--secondary-text);
+		font-size: 0.78rem;
+		padding: 0.4rem 1.25rem;
+		border-bottom: 1px solid var(--border);
+		flex-shrink: 0;
 	}
 
 	.messages {

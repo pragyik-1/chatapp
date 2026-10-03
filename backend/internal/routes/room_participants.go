@@ -16,7 +16,7 @@ type RoomParticipantRequest struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func addParticipant(queries *db.Queries) http.HandlerFunc {
+func addParticipant(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		roomIDStr := chi.URLParam(r, "roomId")
 		roomID, err := uuid.Parse(roomIDStr)
@@ -52,7 +52,7 @@ func addParticipant(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func removeParticipant(queries *db.Queries) http.HandlerFunc {
+func removeParticipant(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		roomIDStr := chi.URLParam(r, "roomId")
 		roomID, err := uuid.Parse(roomIDStr)
@@ -88,7 +88,7 @@ func removeParticipant(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func getRoomParticipants(queries *db.Queries) http.HandlerFunc {
+func getRoomParticipants(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		roomIDStr := chi.URLParam(r, "roomId")
 		roomID, err := uuid.Parse(roomIDStr)
@@ -120,7 +120,7 @@ func getRoomParticipants(queries *db.Queries) http.HandlerFunc {
 
 // _isRoomCreator verifies the authenticated user created the room. It writes
 // the error response itself and returns false when the check fails.
-func _isRoomCreator(r *http.Request, queries *db.Queries, roomID uuid.UUID, w http.ResponseWriter) bool {
+func _isRoomCreator(r *http.Request, queries db.Querier, roomID uuid.UUID, w http.ResponseWriter) bool {
 	userID, ok := utils.GetUserIDFromContext(r.Context())
 	if !ok {
 		utils.WriteError(w, http.StatusUnauthorized, "unauthorized")

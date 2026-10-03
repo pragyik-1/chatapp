@@ -5,14 +5,17 @@
 	import type {
 		Room,
 		Message,
+		MessageDeletedPayload,
+		RealtimeStatus,
 		RoomParticipant,
 		User,
 		ParticipantDisplay,
 		UserSearchResult,
 	} from '$lib/types';
-	import { colorVar } from '$lib/utils';
+	import { colorVar, upsertMessage } from '$lib/utils';
+	import { realtime } from '$lib/realtime';
 	import { toast } from '@hermitk/bluenite';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -22,6 +25,10 @@
 	let participants = $state<RoomParticipant[]>([]);
 	let selectedRoom = $state<Room | null>(null);
 	let loading = $state(true);
+	let connectionState = $state<RealtimeStatus>(realtime.getStatus());
+
+	/** The room the socket is currently subscribed to, so it can be left. */
+	let subscribedRoomId = $state<string | null>(null);
 
 	let pendingDM = $state<UserSearchResult | null>(null);
 	let dmNames = $state<Record<string, string>>({});
@@ -63,6 +70,15 @@
 		);
 	}
 
+	onMount(() => {
+		realtime.onStatus((status) => {
+			connectionState = status;
+		});
+		realtime.onMessageCreated(applyIncomingMessage);
+		realtime.onMessageUpdated(applyIncomingMessage);
+		realtime.onMessageDeleted(applyRemovedMessage);
+	});
+
 	onMount(async () => {
 		const [userRes, roomsRes] = await Promise.all([api.getCurrentUser(), api.getUserRooms()]);
 		if (userRes.error || !userRes.data) {
@@ -79,13 +95,32 @@
 		loading = false;
 	});
 
+	// Leaving the page unsubscribes from the room on screen, so the backend stops
+	// fanning that room's events to a socket nobody is reading.
+	onDestroy(() => {
+		if (subscribedRoomId) {
+			realtime.unsubscribe(subscribedRoomId);
+			subscribedRoomId = null;
+		}
+	});
+
 	async function handleSelect(room: Room) {
 		pendingDM = null;
 		selectedRoom = room;
+		// Subscribe before fetching, so a message sent between the fetch and the
+		// subscription is still delivered rather than lost in the gap. upsert
+		// makes the overlap with the fetched list harmless.
+		realtime.subscribe(room.id);
 		const [messagesRes, participantsRes] = await Promise.all([
 			api.getMessages(room.id),
 			api.getRoomParticipants(room.id),
 		]);
+		// The previous room is only left once the new one is loaded, so no room
+		// the user is looking at is ever unsubscribed.
+		if (subscribedRoomId && subscribedRoomId !== room.id) {
+			realtime.unsubscribe(subscribedRoomId);
+		}
+		subscribedRoomId = room.id;
 		if (messagesRes.error) {
 			toast.show({ variant: 'danger', message: messagesRes.error });
 		}
@@ -94,6 +129,18 @@
 		}
 		allMessages = messagesRes.data || [];
 		participants = participantsRes.data || [];
+	}
+
+	// Realtime events are routed by room, because a room switch can be in flight
+	// while an event for the room being left arrives.
+	function applyIncomingMessage(message: Message) {
+		if (!selectedRoom || message.room_id !== selectedRoom.id) return;
+		allMessages = upsertMessage(allMessages, message);
+	}
+
+	function applyRemovedMessage(payload: MessageDeletedPayload) {
+		if (!selectedRoom || payload.room_id !== selectedRoom.id) return;
+		allMessages = allMessages.filter((m) => m.id !== payload.message_id);
 	}
 
 	// Opens an existing 1:1 room with the target user, or opens a pending
@@ -110,6 +157,12 @@
 		selectedRoom = null;
 		allMessages = [];
 		participants = [];
+		// No room is on screen, so there is nothing to watch. The subscription
+		// returns once handleSend creates the room.
+		if (subscribedRoomId) {
+			realtime.unsubscribe(subscribedRoomId);
+			subscribedRoomId = null;
+		}
 	}
 
 	async function handleSend(content: string) {
@@ -135,6 +188,9 @@
 			rooms = [room, ...rooms];
 			selectedRoom = room;
 			pendingDM = null;
+			// The room exists now, so the socket can watch it like any other.
+			realtime.subscribe(room.id);
+			subscribedRoomId = room.id;
 
 			const partsRes = await api.getRoomParticipants(room.id);
 			if (partsRes.error) {
@@ -149,7 +205,9 @@
 			toast.show({ variant: 'danger', message: res.error });
 			return;
 		}
-		if (res.data) allMessages = [...allMessages, res.data];
+		// upsert rather than append: the created event for this same message is
+		// already in flight, and appending would show it twice.
+		if (res.data) allMessages = upsertMessage(allMessages, res.data);
 	}
 
 	async function handleEdit(messageId: string, newContent: string) {
@@ -158,9 +216,7 @@
 			toast.show({ variant: 'danger', message: res.error });
 			return;
 		}
-		if (res.data) {
-			allMessages = allMessages.map((m) => (m.id === messageId ? res.data! : m));
-		}
+		if (res.data) allMessages = upsertMessage(allMessages, res.data);
 	}
 
 	async function handleDelete(messageId: string) {
@@ -193,6 +249,7 @@
 			{currentUserId}
 			{memberCount}
 			{getParticipant}
+			{connectionState}
 			onSend={handleSend}
 			onEdit={handleEdit}
 			onDelete={handleDelete}

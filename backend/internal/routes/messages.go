@@ -1,13 +1,17 @@
 package routes
 
 import (
+	"chat_app/internal/constants"
 	"chat_app/internal/db"
+	"chat_app/internal/hub"
 	"chat_app/internal/utils"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -23,7 +27,7 @@ type EditMessageRequest struct {
 	Content string `json:"content"`
 }
 
-func sendMessage(queries *db.Queries) http.HandlerFunc {
+func sendMessage(queries db.Querier, h *hub.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req SendMessageRequest
 		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
@@ -60,15 +64,18 @@ func sendMessage(queries *db.Queries) http.HandlerFunc {
 		})
 
 		if err != nil {
+			log.Printf("send message failed: %v (req=%s)", err, middleware.GetReqID(r.Context()))
 			utils.WriteError(w, http.StatusInternalServerError, "failed to send message")
 			return
 		}
+
+		_publishEvent(r, h, msg.RoomID.Bytes, constants.EventMessageCreated, msg)
 
 		utils.WriteJSON(w, http.StatusCreated, msg)
 	}
 }
 
-func getRoomMessages(queries *db.Queries) http.HandlerFunc {
+func getRoomMessages(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		roomIDStr := chi.URLParam(r, "roomId")
 		roomID, err := uuid.Parse(roomIDStr)
@@ -107,6 +114,7 @@ func getRoomMessages(queries *db.Queries) http.HandlerFunc {
 			Offset: offset,
 		})
 		if err != nil {
+			log.Printf("get room messages failed: %v (req=%s)", err, middleware.GetReqID(r.Context()))
 			utils.WriteError(w, http.StatusInternalServerError, "failed to retrieve messages")
 			return
 		}
@@ -115,7 +123,7 @@ func getRoomMessages(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func editMessage(queries *db.Queries) http.HandlerFunc {
+func editMessage(queries db.Querier, h *hub.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		messageIDStr := chi.URLParam(r, "messageId")
 		messageID, err := uuid.Parse(messageIDStr)
@@ -140,7 +148,7 @@ func editMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		if !_isMessageSender(r, queries, messageID, userID, w) {
+		if _, ok := _isMessageSender(r, queries, messageID, userID, w); !ok {
 			return
 		}
 
@@ -150,15 +158,18 @@ func editMessage(queries *db.Queries) http.HandlerFunc {
 			SenderID: pgtype.UUID{Bytes: userID, Valid: true},
 		})
 		if err != nil {
+			log.Printf("edit message failed: %v (req=%s)", err, middleware.GetReqID(r.Context()))
 			utils.WriteError(w, http.StatusInternalServerError, "failed to edit message")
 			return
 		}
+
+		_publishEvent(r, h, msg.RoomID.Bytes, constants.EventMessageUpdated, msg)
 
 		utils.WriteJSON(w, http.StatusOK, msg)
 	}
 }
 
-func deleteMessage(queries *db.Queries) http.HandlerFunc {
+func deleteMessage(queries db.Querier, h *hub.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		messageIDStr := chi.URLParam(r, "messageId")
 		messageID, err := uuid.Parse(messageIDStr)
@@ -173,24 +184,39 @@ func deleteMessage(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		if !_isMessageSender(r, queries, messageID, userID, w) {
+		// The message is read before the delete so the event can name the room
+		// it concerns; afterwards the message no longer exists.
+		existing, ok := _isMessageSender(r, queries, messageID, userID, w)
+		if !ok {
 			return
 		}
+		roomID := existing.RoomID.Bytes
 
 		err = queries.DeleteMessage(r.Context(), db.DeleteMessageParams{
 			ID:       pgtype.UUID{Bytes: messageID, Valid: true},
 			SenderID: pgtype.UUID{Bytes: userID, Valid: true},
 		})
 		if err != nil {
+			log.Printf("delete message failed: %v (req=%s)", err, middleware.GetReqID(r.Context()))
 			utils.WriteError(w, http.StatusInternalServerError, "failed to delete message")
 			return
 		}
+
+		_publishEvent(r, h, roomID, constants.EventMessageDeleted, deletedMessageEvent{
+			MessageID: messageID,
+			RoomID:    roomID,
+		})
 
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
-func _isValidParticipant(r *http.Request, queries *db.Queries, roomID, userID uuid.UUID) bool {
+type deletedMessageEvent struct {
+	MessageID uuid.UUID `json:"message_id"`
+	RoomID    uuid.UUID `json:"room_id"`
+}
+
+func _isValidParticipant(r *http.Request, queries db.Querier, roomID, userID uuid.UUID) bool {
 	isParticipant, err := queries.IsParticipant(r.Context(), db.IsParticipantParams{
 		RoomID: pgtype.UUID{Bytes: roomID, Valid: true},
 		UserID: pgtype.UUID{Bytes: userID, Valid: true},
@@ -198,7 +224,7 @@ func _isValidParticipant(r *http.Request, queries *db.Queries, roomID, userID uu
 	return err == nil && isParticipant
 }
 
-func _validateReplyTo(r *http.Request, queries *db.Queries, replyTo *uuid.UUID, roomID uuid.UUID) (pgtype.UUID, error) {
+func _validateReplyTo(r *http.Request, queries db.Querier, replyTo *uuid.UUID, roomID uuid.UUID) (pgtype.UUID, error) {
 	if replyTo == nil {
 		return pgtype.UUID{}, nil
 	}
@@ -218,21 +244,22 @@ func _validateReplyTo(r *http.Request, queries *db.Queries, replyTo *uuid.UUID, 
 	return pgtype.UUID{Bytes: *replyTo, Valid: true}, nil
 }
 
-func _isMessageSender(r *http.Request, queries *db.Queries, messageID, senderID uuid.UUID, w http.ResponseWriter) bool {
+func _isMessageSender(r *http.Request, queries db.Querier, messageID, senderID uuid.UUID, w http.ResponseWriter) (db.Message, bool) {
 	existing, err := queries.GetMessageByID(r.Context(), pgtype.UUID{Bytes: messageID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			utils.WriteError(w, http.StatusNotFound, "message not found")
-			return false
+			return db.Message{}, false
 		}
+		log.Printf("verify message sender failed: %v (req=%s)", err, middleware.GetReqID(r.Context()))
 		utils.WriteError(w, http.StatusInternalServerError, "failed to verify message")
-		return false
+		return db.Message{}, false
 	}
 
 	if !existing.SenderID.Valid || existing.SenderID.Bytes != senderID {
 		utils.WriteError(w, http.StatusForbidden, "you are not the sender of this message")
-		return false
+		return db.Message{}, false
 	}
 
-	return true
+	return existing, true
 }

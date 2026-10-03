@@ -15,6 +15,10 @@ import type {
 } from '$lib/types'
 import { getCookie, setCookie, deleteCookie, isTokenValid } from '$lib/utils'
 
+export const API_BASE_URL = 'http://localhost:8080'
+
+const ACCESS_TOKEN_TTL_DAYS = 1
+
 export class Api {
   private baseUrl: string
   private accessToken: string | null = null
@@ -62,7 +66,7 @@ export class Api {
     })
     if (data) {
       this.accessToken = data.access_token
-      setCookie('access_token', this.accessToken, 1)
+      setCookie('access_token', this.accessToken, ACCESS_TOKEN_TTL_DAYS)
     }
     return { data, error }
   }
@@ -102,7 +106,7 @@ export class Api {
       options,
     )
     if (data) {
-      setCookie('access_token', data.access_token, 1)
+      setCookie('access_token', data.access_token, ACCESS_TOKEN_TTL_DAYS)
       this.accessToken = data.access_token
     }
     return { data, error }
@@ -292,4 +296,4 @@ export class Api {
   }
 }
 
-export const api = new Api('http://localhost:8080')
+export const api = new Api(API_BASE_URL)

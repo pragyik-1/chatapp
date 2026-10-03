@@ -2,7 +2,9 @@ package routes
 
 import (
 	internalMiddleware "chat_app/internal/auth"
+	"chat_app/internal/constants"
 	"chat_app/internal/db"
+	"chat_app/internal/hub"
 	"chat_app/internal/utils"
 	"log"
 	"net"
@@ -17,7 +19,7 @@ import (
 	"github.com/rs/cors"
 )
 
-func MakeRouter(queries *db.Queries) *chi.Mux {
+func MakeRouter(queries db.Querier, h *hub.Hub) *chi.Mux {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		log.Fatal("JWT_SECRET is not set")
@@ -34,6 +36,10 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 
 	r.Use(c.Handler)
 	r.Use(middleware.RequestID)
+	// Must be registered before middleware.Logger. chi formats the request line
+	// into its log buffer before the handler runs, so the access token on /ws
+	// must be gone from RequestURI by then.
+	r.Use(redactWebSocketToken)
 	r.Use(middleware.Logger)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +49,12 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 	r.With(rateLimit(10, time.Minute)).Post("/register", registerUser(queries))
 	r.With(rateLimit(10, time.Minute)).Post("/login", loginUser(queries, secret))
 	r.With(rateLimit(30, time.Minute)).Post("/token/refresh", refreshToken(queries, secret))
+
+	// The WebSocket handshake authenticates from a query parameter rather than
+	// the Authorization header, so it sits outside the JWTAuth group and
+	// validates the token itself.
+	r.With(rateLimit(constants.WSConnectRateLimit, time.Minute)).
+		Get(constants.WebSocketPath, serveWebSocket(queries, h, secret))
 
 	r.Group(func(r chi.Router) {
 		r.Use(internalMiddleware.JWTAuth(secret))
@@ -65,20 +77,20 @@ func MakeRouter(queries *db.Queries) *chi.Mux {
 			r.Delete("/{roomId}/participants", removeParticipant(queries))
 
 			r.Get("/{roomId}/messages", getRoomMessages(queries))
-			r.Post("/{roomId}/messages", sendMessage(queries))
-			r.Put("/messages/{messageId}", editMessage(queries))
-			r.Delete("/messages/{messageId}", deleteMessage(queries))
+			r.Post("/{roomId}/messages", sendMessage(queries, h))
+			r.Put("/messages/{messageId}", editMessage(queries, h))
+			r.Delete("/messages/{messageId}", deleteMessage(queries, h))
 		})
 	})
 	return r
 }
 
-// allowedOrigins reads the CORS_ORIGINS env var (comma-separated) and falls
+// reads the CORS_ORIGINS env var (comma-separated) and falls
 // back to the default Vite dev origins when it is unset.
 func allowedOrigins() []string {
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
 		var origins []string
-		for _, o := range strings.Split(raw, ",") {
+		for o := range strings.SplitSeq(raw, ",") {
 			if o = strings.TrimSpace(o); o != "" {
 				origins = append(origins, o)
 			}
@@ -90,9 +102,16 @@ func allowedOrigins() []string {
 	return []string{"http://localhost:5173", "http://localhost:5174"}
 }
 
-// rateLimit is a simple in-memory per-IP token-bucket-ish limiter. It is
-// sufficient to blunt brute-force attempts; a shared store would be needed
-// for multi-instance deployments.
+// drops the query string from the WebSocket handshake request before it can reach the access log.
+func redactWebSocketToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == constants.WebSocketPath {
+			r.RequestURI = r.URL.Path
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func rateLimit(requests int, per time.Duration) func(http.Handler) http.Handler {
 	type entry struct {
 		count int

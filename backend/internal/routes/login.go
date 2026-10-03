@@ -23,7 +23,7 @@ type LogoutRequest struct {
 
 const refreshTokenCookieName = "refresh_token"
 
-func loginUser(queries *db.Queries, secret string) http.HandlerFunc {
+func loginUser(queries db.Querier, secret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req LoginRequest
 		if err := utils.ValidateRequestBody(w, r, &req); err != nil {

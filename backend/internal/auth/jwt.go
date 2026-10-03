@@ -32,7 +32,7 @@ func JWTAuth(secret string) func(http.Handler) http.Handler {
 			}
 
 			tokenString := parts[1]
-			userID, err := validateJWT(tokenString, secret)
+			userID, err := ValidateJWT(tokenString, secret)
 			if err != nil {
 				utils.WriteError(w, http.StatusUnauthorized, "invalid token")
 				return
@@ -45,7 +45,11 @@ func JWTAuth(secret string) func(http.Handler) http.Handler {
 	}
 }
 
-func validateJWT(tokenString string, secret string) (pgtype.UUID, error) {
+// ValidateJWT verifies an HS256 token signed with secret and returns the user id
+// it carries. It is exported because the WebSocket handshake validates its token
+// itself, from a query parameter, instead of going through JWTAuth: a browser
+// cannot set an Authorization header on a WebSocket handshake.
+func ValidateJWT(tokenString string, secret string) (pgtype.UUID, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")

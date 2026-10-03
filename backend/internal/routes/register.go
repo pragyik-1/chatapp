@@ -20,7 +20,7 @@ type registerRequest struct {
 	Color    string `json:"color"`
 }
 
-func registerUser(queries *db.Queries) http.HandlerFunc {
+func registerUser(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req registerRequest
 		if err := utils.ValidateRequestBody(w, r, &req); err != nil {

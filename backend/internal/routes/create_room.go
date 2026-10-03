@@ -13,7 +13,7 @@ type CreateRoomRequest struct {
 	IsGroup bool   `json:"is_group"`
 }
 
-func createRoom(queries *db.Queries) http.HandlerFunc {
+func createRoom(queries db.Querier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req CreateRoomRequest
 		if err := utils.ValidateRequestBody(w, r, &req); err != nil {
